@@ -960,11 +960,21 @@ function renderPractice() {
     answerUI += `</div>`;
   }
 
-  let action = '';
+﻿  let action = '';
   if (!submitted) {
-    action = `<button class="btn btn-solid" id="submitAnswer">提交答案</button>`;
+    if (q.type === 'text') {
+      action = `<button class="btn btn-solid" id="submitAnswer">确认答案</button>`;
+    } else if (q.type === 'multiple') {
+      const need = extractLetters(q.answer).length;
+      const have = (st.selected || '').length;
+      action = `<span class="hint">已选 ${have} / ${need} 项，选满后自动判题</span>`;
+    } else {
+      action = `<span class="hint">选择答案后自动判题</span>`;
+    }
   } else {
-    action = `<button class="btn btn-solid" id="nextQuestion">${index + 1 >= total ? '查看答题报告' : '下一题 →'}</button>`;
+    const isLast = index + 1 >= total;
+    action = `<button class="btn btn-solid" id="nextQuestion">${isLast ? '查看答题报告' : '下一题 →'}</button>`;
+    if (st.correct && !isLast) action += `<span class="hint" style="color:#16a34a">回答正确，即将自动进入下一题…</span>`;
   }
 
   let resultPanel = '';
@@ -1004,7 +1014,7 @@ function renderPractice() {
 function bindPracticeEvents() {
   const root = $('#view-practice');
 
-  $$('.option', root).forEach((btn) => {
+﻿  $$('.option', root).forEach((btn) => {
     btn.addEventListener('click', () => {
       const item = session.items[session.index];
       const q = item.q;
@@ -1020,7 +1030,13 @@ function bindPracticeEvents() {
         st.selected = key;
       }
       session.answers[session.index] = st;
-      renderPractice();
+      if (q.type === 'multiple') {
+        const need = extractLetters(q.answer).length;
+        if ((st.selected || '').length >= need) submitCurrentAnswer();
+        else renderPractice();
+      } else {
+        submitCurrentAnswer();
+      }
     });
   });
 
@@ -1030,7 +1046,7 @@ function bindPracticeEvents() {
       if (st.submitted) return;
       st.selected = btn.dataset.judge;
       session.answers[session.index] = st;
-      renderPractice();
+      submitCurrentAnswer();
     });
   });
 
@@ -1060,6 +1076,18 @@ function currentUserAnswer(q, st) {
   if (q.type === 'judge') return st.selected || '';
   if (q.type === 'text') return st.text || '';
   return st.selected || '';
+}
+
+function scheduleAutoNextIfCorrect(st) {
+  if (!st || !st.correct || !session) return;
+  const isLast = session.index + 1 >= session.items.length;
+  if (isLast) return;
+  clearTimeout(session._autoTimer);
+  session._autoTimer = setTimeout(() => {
+    if (!session) return;
+    const cur = session.answers[session.index];
+    if (cur && cur.submitted && cur.correct) nextQuestion();
+  }, 900);
 }
 
 function submitCurrentAnswer() {
@@ -1097,6 +1125,7 @@ function submitCurrentAnswer() {
   saveDB();
   updateBadge();
   renderPractice();
+  scheduleAutoNextIfCorrect(st);
 }
 
 function nextQuestion() {
