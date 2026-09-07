@@ -1330,6 +1330,71 @@ function saveEditPaper() {
   toast('已保存试卷修改');
 }
 
+function openBackupModal() {
+  $('#backupTextarea').value = '';
+  $('#backupOverlay').classList.remove('hidden');
+}
+
+function closeBackupModal() {
+  $('#backupOverlay').classList.add('hidden');
+}
+
+function generateBackup() {
+  $('#backupTextarea').value = JSON.stringify({ papers: db.papers, wrongBook: db.wrongBook, exportedAt: formatDate(Date.now()) }, null, 2);
+  toast('已生成备份，可复制或下载');
+}
+
+function copyBackup() {
+  const ta = $('#backupTextarea');
+  if (!ta.value) generateBackup();
+  const text = ta.value;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => toast('备份内容已复制')).catch(() => toast('复制失败，请手动选择复制'));
+  } else {
+    ta.select();
+    document.execCommand('copy');
+    toast('备份内容已复制');
+  }
+}
+
+function downloadBackup() {
+  if (!$('#backupTextarea').value) generateBackup();
+  const data = $('#backupTextarea').value;
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'shuatiben-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast('备份文件已下载');
+}
+
+function importBackup() {
+  const raw = $('#backupTextarea').value.trim();
+  if (!raw) { toast('请先粘贴要导入的备份内容'); return; }
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    toast('导入失败：不是有效的 JSON');
+    return;
+  }
+  const papers = Array.isArray(data.papers) ? data.papers : [];
+  const wrongBook = Array.isArray(data.wrongBook) ? data.wrongBook : [];
+  if (!papers.length && !wrongBook.length) { toast('没有可导入的数据'); return; }
+  if (!confirm('导入将覆盖当前设备的全部数据，是否继续？')) return;
+  db = { papers, wrongBook };
+  saveDB();
+  closeBackupModal();
+  renderPapers();
+  renderWrongBook();
+  updateBadge();
+  toast('数据导入成功');
+}
+
 function loadSample() {
   const raws = [
     { typeLabel: '单选题', question: '若集合 A = {1, 2, 3}，B = {2, 3, 4}，则 A ∩ B =（　）', options: ['{1}', '{2, 3}', '{2, 3, 4}', '{1, 2, 3, 4}'], answer: 'B', analysis: '交集表示同时属于两个集合的元素，即 2 和 3。' },
@@ -1630,6 +1695,16 @@ $('#copyPromptBtn').addEventListener('click', () => {
   } else {
     toast('当前浏览器不支持自动复制，请手动选择文字复制');
   }
+});
+
+$('#openBackupBtn').addEventListener('click', openBackupModal);
+$('#backupClose').addEventListener('click', closeBackupModal);
+$('#backupGenerateBtn').addEventListener('click', generateBackup);
+$('#backupCopyBtn').addEventListener('click', copyBackup);
+$('#backupDownloadBtn').addEventListener('click', downloadBackup);
+$('#backupImportBtn').addEventListener('click', importBackup);
+$('#backupOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'backupOverlay') closeBackupModal();
 });
 
 /* ============================== 初始化 ============================== */

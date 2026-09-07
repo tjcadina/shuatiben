@@ -23,6 +23,7 @@
       <div class="sidebar-footer">
         <button id="openUploadBtn" class="btn-primary">＋ 上传试卷</button>
         <button id="loadSampleBtn" class="btn-ghost">载入示例试卷</button>
+        <button id="openBackupBtn" class="btn-ghost">备份 / 恢复数据</button>
       </div>
     </aside>
 
@@ -104,6 +105,29 @@
         <div class="modal-actions">
           <button id="editCancel" class="btn btn-outline">取消</button>
           <button id="editSave" class="btn btn-solid">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="backupOverlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>备份 / 恢复数据</h3>
+        <button class="modal-close" id="backupClose">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="hint">在设备 A 点“生成备份”，复制下方内容；在设备 B 点“备份 / 恢复数据”，粘贴后点“导入”，即可把试卷和错题搬过去。导入会覆盖当前设备的全部数据。</p>
+        <div class="field">
+          <label for="backupTextarea">备份内容（JSON）</label>
+          <textarea id="backupTextarea" style="min-height:180px" placeholder="点下方按钮生成备份内容"></textarea>
+        </div>
+        <div class="modal-actions" style="flex-wrap:wrap">
+          <button id="backupGenerateBtn" class="btn btn-solid">生成备份</button>
+          <button id="backupCopyBtn" class="btn btn-outline">复制备份内容</button>
+          <button id="backupDownloadBtn" class="btn btn-outline">下载为 .json 文件</button>
+          <button id="backupImportBtn" class="btn btn-green">导入下方内容</button>
         </div>
       </div>
     </div>
