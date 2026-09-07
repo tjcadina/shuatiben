@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>刷题本 · 智能刷题</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">题</div>
+        <div>
+          <h1>刷题本</h1>
+          <p>上传 · 归档 · 刷题 · 错题</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <button class="nav-btn active" data-view="papers">📚 试卷库</button>
+        <button class="nav-btn" data-view="wrong">📕 错题集 <span id="wrongBadge" class="badge">0</span></button>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="openUploadBtn" class="btn-primary">＋ 上传试卷</button>
+        <button id="loadSampleBtn" class="btn-ghost">载入示例试卷</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar" id="topbar"></header>
+      <div class="content">
+        <section id="view-papers" class="view active"></section>
+        <section id="view-wrong" class="view"></section>
+        <section id="view-practice" class="view"></section>
+        <section id="view-report" class="view"></section>
+      </div>
+    </main>
+  </div>
+
+  <div id="modalOverlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="modalTitle">上传试卷</h3>
+        <button class="modal-close" id="modalClose">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+                    <div class="format-hint">
+            <div class="fh-title">📋 上传文档格式提示 / AI 出题要求</div>
+            <div class="fh-text" id="formatPromptText">请依据〔年份〕年〔考试名称〕考试——《〔科目名称〕》的历年考试真题以及命题趋势，AI 智能出 3 套 2026 年即将考试出现概率最高的模拟试题。题量与计分标准按照标准同类型考试给出；并给出参考答案与解析，答案解析放在每道题目后面。</div>
+            <button id="copyPromptBtn" class="btn btn-outline btn-sm">复制这段要求</button>
+          </div>
+
+          <label>选择文件（.docx / .pdf / .txt / .md / .json）</label>
+          <div class="dropzone" id="dropzone">
+            <span class="big">📄</span>
+            点击选择文件，或拖拽文件到这里
+            <div class="hint">支持 Word(.docx)、PDF、纯文本、Markdown 与 JSON；Word/PDF 会自动提取文字。旧版 .doc 请先另存为 .docx</div>
+          </div>
+          <input type="file" id="fileInput" accept=".docx,.pdf,.txt,.md,.json,.text" class="hidden" />
+        </div>
+
+        <div class="field">
+          <label for="rawInput">试卷内容（可粘贴或修改）</label>
+          <textarea id="rawInput" placeholder="粘贴试卷内容，例如：&#10;1. 1+1 = ?&#10;A. 1&#10;B. 2&#10;C. 3&#10;D. 4&#10;答案：B&#10;解析：基础加法。"></textarea>
+        </div>
+
+        <div class="field">
+          <button id="parseBtn" class="btn btn-solid">解析并预览</button>
+          <span class="hint">系统会根据题目内容自动识别科目，也可在下方手动修改。</span>
+        </div>
+
+        <div id="previewWrap" class="hidden">
+          <div class="field">
+            <label>解析结果：识别到 <span id="previewCount">0</span> 套试卷 · <span id="previewQuestionCount">0</span> 道题，可在下方修改试卷名称与科目</label>
+            <div id="papersList"></div>
+          </div>
+          <div class="modal-actions">
+            <button id="cancelImportBtn" class="btn btn-outline">取消</button>
+            <button id="confirmImportBtn" class="btn btn-solid">确认导入</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="editOverlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>编辑试卷</h3>
+        <button class="modal-close" id="editClose">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="editTitle">试卷名称</label>
+          <input type="text" id="editTitle" placeholder="例如：2026 数学周测卷" />
+        </div>
+        <div class="field">
+          <label for="editSubject">归档科目</label>
+          <input type="text" id="editSubject" list="subjectDatalist" placeholder="选择或输入科目，如：城乡规划管理与法规" />
+          <datalist id="subjectDatalist"></datalist>
+        </div>
+        <div class="modal-actions">
+          <button id="editCancel" class="btn btn-outline">取消</button>
+          <button id="editSave" class="btn btn-solid">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="vendor/mammoth.browser.min.js"></script>
+  <script src="vendor/pdf.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
+
+
