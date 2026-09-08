@@ -1847,6 +1847,7 @@ function renderPractice() {
   } else {
     const isLast = index + 1 >= total;
     action = `<button class="btn btn-solid" id="nextQuestion">${isLast ? '查看答题报告' : '下一题 →'}</button>`;
+    action += `<button type="button" class="btn btn-outline btn-sm" data-action="edit-answer">✎ 修改本题答案</button>`;
     if (st.correct && !isLast) action += `<span class="hint" style="color:#16a34a">回答正确，即将自动进入下一题…</span>`;
   }
 
@@ -2016,9 +2017,11 @@ function submitCurrentAnswer() {
         w.lastAnswer = userAnswer;
       }
     }
-  } else if (!correct) {
+  } else if (session.mode === 'paper') {
     const paper = { id: session.paperId, title: session.title, subject: session.subject };
-    upsertWrong(paper, q, userAnswer);
+    const existingWrong = db.wrongBook.find((w) => w.paperId === session.paperId && w.questionId === q.id);
+    if (correct && existingWrong) removeWrongById(existingWrong.id);
+    else if (!correct) upsertWrong(paper, q, userAnswer);
   }
 
   if (session.mode === 'paper') savePaperProgress();
@@ -2136,6 +2139,32 @@ function finalizeAndRestartPaper(paperId) {
   startPaper(paperId, false);
 }
 
+/* ---- 任意时刻返回修改已提交的答案 ---- */
+function editCurrentAnswer() {
+  if (!session) return;
+  const st = session.answers[session.index];
+  if (st && st.submitted) {
+    st.submitted = false;
+    delete st.correct;
+    delete st.userAnswer;
+    if (session.mode === 'paper') savePaperProgress();
+    renderPractice();
+    toast('现在可以修改本题答案');
+  }
+}
+
+function continuePractice() {
+  if (!session) return;
+  // 回到第一道错题；没有错题就回到第 1 题，方便用进度下拉逐题核对/修改
+  let idx = 0;
+  const ans = session.answers || [];
+  for (let i = 0; i < ans.length; i++) {
+    const a = ans[i];
+    if (a && a.submitted && !a.correct) { idx = i; break; }
+  }
+  goToQuestion(idx);
+}
+
 function feedbackText(acc) {
   if (acc >= 90) return '太强了！这套题掌握得很好。';
   if (acc >= 75) return '不错！再巩固一下错题就更稳了。';
@@ -2200,6 +2229,7 @@ function renderReport() {
 
       <div class="action-row">
         <button class="btn btn-outline" data-action="back-papers">返回试卷库</button>
+        ${session.mode === 'paper' ? `<button class="btn btn-outline" data-action="continue-practice">✎ 继续答题修改</button>` : ''}
         ${wrong ? `<button class="btn btn-solid" data-action="retry-wrong">重练本次错题</button>` : ''}
         <button class="btn btn-outline" data-action="export-report">导出报告 JSON</button>
       </div>
@@ -2494,6 +2524,8 @@ document.addEventListener('click', (e) => {
   else if (action === 'start-paper') startPaper(id, false);
   else if (action === 'jump-question') goToQuestion(Number(btn.dataset.index));
   else if (action === 'speak-question') speakCurrentQuestion();
+  else if (action === 'edit-answer') editCurrentAnswer();
+  else if (action === 'continue-practice') continuePractice();
   else if (action === 'toggle-fav') toggleFavoriteCurrentQuestion();
   else if (action === 'remove-fav') {
     removeFavoriteById(id);
