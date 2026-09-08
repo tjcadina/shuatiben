@@ -15,7 +15,7 @@ assert.ok(!html.includes('<h1>vessel 刷题</h1>'), '文字版品牌标题已由
 assert.ok(!html.includes('>刷题本<') && !html.includes('<title>刷题本'), '旧的“刷题本”名称应移除');
 
 const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
-assert.ok(css.includes('.brand-logo{width:180px'), '桌面版 Logo 宽度 180px（放大 1.5 倍）');
+assert.ok(css.includes('.brand-logo{width:100%;max-width:100%;height:auto;display:block} /* 网页版撑满侧边栏宽度 */'), '网页版 Logo 撑满侧边栏宽度');
 assert.ok(css.includes('.brand-logo{width:237px} /* 手机端 Logo（158px x 1.5） */'), '手机端 Logo 放大 1.5 倍（237px）');
 assert.ok(css.includes('.brand.brand-logo-mode{flex-direction:column;align-items:flex-start;gap:8px;padding:0 0 6px;margin:0}'), 'Logo 左上角对齐、去掉多余偏移');
 
