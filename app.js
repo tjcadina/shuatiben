@@ -73,10 +73,13 @@ function loadDB() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const d = JSON.parse(raw);
-      if (d && Array.isArray(d.papers) && Array.isArray(d.wrongBook)) return d;
+      if (d && Array.isArray(d.papers) && Array.isArray(d.wrongBook)) {
+        if (!d.progress || typeof d.progress !== 'object') d.progress = {};
+        return d;
+      }
     }
   } catch (e) {}
-  return { papers: [], wrongBook: [] };
+  return { papers: [], wrongBook: [], progress: {} };
 }
 
 function saveDB() {
@@ -708,6 +711,73 @@ function removeWrongById(id) {
   db.wrongBook = db.wrongBook.filter((w) => w.id !== id);
 }
 
+/* ============================== 进度保存 ============================== */
+function ensureProgressStore() {
+  if (!db.progress || typeof db.progress !== 'object') db.progress = {};
+}
+
+function savePaperProgress() {
+  if (!session || session.mode !== 'paper' || !session.paperId) return;
+  ensureProgressStore();
+  const answers = session.answers.map((a) => {
+    if (!a) return null;
+    return {
+      selected: a.selected || '',
+      text: a.text || '',
+      submitted: !!a.submitted,
+      correct: !!a.correct,
+      userAnswer: a.userAnswer || ''
+    };
+  });
+  db.progress[session.paperId] = {
+    mode: 'paper',
+    title: session.title,
+    subject: session.subject,
+    index: session.index,
+    answers,
+    total: session.items.length,
+    updatedAt: Date.now()
+  };
+  saveDB();
+}
+
+function getPaperProgress(paperId) {
+  ensureProgressStore();
+  return db.progress[paperId] || null;
+}
+
+function clearPaperProgress(paperId) {
+  ensureProgressStore();
+  if (db.progress[paperId]) {
+    delete db.progress[paperId];
+    saveDB();
+  }
+}
+
+function firstUnansweredIndex(answers) {
+  for (let i = 0; i < (answers || []).length; i++) {
+    if (!answers[i] || !answers[i].submitted) return i;
+  }
+  return -1;
+}
+
+function restoreAnswersFromProgress(progress, itemCount) {
+  const answers = [];
+  if (progress && Array.isArray(progress.answers)) {
+    for (let i = 0; i < itemCount; i++) {
+      const a = progress.answers[i];
+      answers.push(a ? {
+        selected: a.selected || '',
+        text: a.text || '',
+        submitted: !!a.submitted,
+        correct: !!a.correct,
+        userAnswer: a.userAnswer || ''
+      } : null);
+    }
+  }
+  return answers;
+}
+
 /* ============================== 视图切换 ============================== */
 function updateBadge() {
   const badge = $('#wrongBadge');
@@ -759,8 +829,9 @@ function renderPapers() {
       </div>
       <div class="grid">`;
 
-    for (const p of papers) {
+﻿    for (const p of papers) {
       const wrongCount = db.wrongBook.filter((w) => w.paperId === p.id).length;
+      const hasProgress = !!(db.progress || {})[p.id];
       const last = p.lastResult
         ? `<span>📈 上次 ${p.lastResult.accuracy}% · ${p.lastResult.correct}/${p.lastResult.total}</span>`
         : `<span>🕒 ${formatDate(p.createdAt)}</span>`;
@@ -768,12 +839,14 @@ function renderPapers() {
         <div class="card-top">
           <span class="tag tag-subject" style="background:${SUBJECT_COLORS[subject] || SUBJECT_COLORS['其他']}22;color:${SUBJECT_COLORS[subject] || SUBJECT_COLORS['其他']}">${escapeHtml(subject)}</span>
           <span class="tag">${p.questions.length} 题</span>
+          ${hasProgress ? '<span class="tag" style="background:#fff3cd;color:#8a6d1a">⏸ 未完成</span>' : ''}
           ${wrongCount ? `<span class="tag" style="background:#fdeef2;color:#e11d48">错题 ${wrongCount}</span>` : ''}
         </div>
         <h4>${escapeHtml(p.title)}</h4>
         <div class="meta">${last}</div>
         <div class="card-actions">
-          <button class="btn btn-solid" data-action="start-paper" data-id="${p.id}">开始刷题</button>
+          <button class="btn btn-solid" data-action="start-paper" data-id="${p.id}">${hasProgress ? '继续上次' : '开始刷题'}</button>
+          ${hasProgress ? `<button class="btn btn-outline btn-sm" data-action="restart-paper" data-id="${p.id}">重新开始</button>` : ''}
           ${wrongCount ? `<button class="btn btn-outline" data-action="start-paper-wrong" data-id="${p.id}">错题重练</button>` : ''}
           <button class="btn btn-outline btn-sm" data-action="edit-paper" data-id="${p.id}">编辑</button>
           <button class="btn btn-danger-soft btn-sm" data-action="delete-paper" data-id="${p.id}">删除</button>
@@ -855,6 +928,7 @@ function startPaper(paperId, wrongOnly) {
   let items = [];
   let mode = 'paper';
   let title = paper.title;
+  let progress = null;
 
   if (wrongOnly) {
     const wrongs = db.wrongBook.filter((w) => w.paperId === paperId);
@@ -867,7 +941,12 @@ function startPaper(paperId, wrongOnly) {
     items = wrongs.map((w) => ({ q: w.question, wrongId: w.id }));
   } else {
     items = paper.questions.map((q) => ({ q, wrongId: null }));
+    progress = getPaperProgress(paper.id);
   }
+
+  const answers = mode === 'paper' && progress ? restoreAnswersFromProgress(progress, items.length) : [];
+  const first = progress ? firstUnansweredIndex(answers) : 0;
+  const resumeIndex = progress && first >= 0 ? first : (progress ? (progress.index || 0) : 0);
 
   session = {
     mode,
@@ -875,10 +954,20 @@ function startPaper(paperId, wrongOnly) {
     subject: paper.subject,
     paperId: paper.id,
     items,
-    index: 0,
-    answers: [],
+    index: Math.min(resumeIndex, Math.max(items.length - 1, 0)),
+    answers,
     startTime: Date.now()
   };
+
+  if (mode === 'paper') {
+    if (progress && first < 0) {
+      clearPaperProgress(paper.id);
+      renderReport();
+      return;
+    }
+    if (progress) toast('已恢复上次进度，继续答题');
+    savePaperProgress();
+  }
   renderPractice();
 }
 
@@ -1122,7 +1211,8 @@ function submitCurrentAnswer() {
     upsertWrong(paper, q, userAnswer);
   }
 
-  saveDB();
+  if (session.mode === 'paper') savePaperProgress();
+  else saveDB();
   updateBadge();
   renderPractice();
   scheduleAutoNextIfCorrect(st);
@@ -1132,6 +1222,7 @@ function nextQuestion() {
   if (!session) return;
   if (session.index + 1 < session.items.length) {
     session.index += 1;
+    if (session.mode === 'paper') savePaperProgress();
     renderPractice();
   } else {
     renderReport();
@@ -1165,7 +1256,7 @@ function renderReport() {
     const paper = db.papers.find((p) => p.id === session.paperId);
     if (paper) {
       paper.lastResult = { score, accuracy, total, correct, date: Date.now() };
-      saveDB();
+      clearPaperProgress(session.paperId);
     }
   }
 
@@ -1498,6 +1589,13 @@ document.addEventListener('click', (e) => {
   else if (action === 'load-sample') loadSample();
   else if (action === 'start-paper') startPaper(id, false);
   else if (action === 'start-paper-wrong') startPaper(id, true);
+  else if (action === 'restart-paper') {
+    if (confirm('重新开始会清除该试卷的答题进度，确定吗？')) {
+      clearPaperProgress(id);
+      renderPapers();
+      startPaper(id, false);
+    }
+  }
   else if (action === 'edit-paper') openEditPaper(id);
   else if (action === 'delete-paper') {
     const p = db.papers.find((x) => x.id === id);
@@ -1505,6 +1603,7 @@ document.addEventListener('click', (e) => {
     if (confirm(`确定删除「${p.title}」吗？其错题记录也会一并删除。`)) {
       db.papers = db.papers.filter((x) => x.id !== id);
       db.wrongBook = db.wrongBook.filter((w) => w.paperId !== id);
+      clearPaperProgress(id);
       saveDB();
       renderPapers();
       updateBadge();
@@ -1530,7 +1629,8 @@ document.addEventListener('click', (e) => {
     }
   }
   else if (action === 'exit-practice') {
-    if (confirm('确定退出本次刷题吗？已提交的作答结果会保留。')) {
+    if (confirm('确定退出本次刷题吗？进度会自动保存，下次可继续。')) {
+      if (session && session.mode === 'paper') savePaperProgress();
       session = null;
       showView('papers');
       renderPapers();

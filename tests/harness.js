@@ -1,0 +1,67 @@
+﻿const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+function makeEl(sel) {
+  return {
+    sel,
+    innerHTML: '',
+    textContent: '',
+    value: '',
+    style: {},
+    files: [],
+    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+    addEventListener() {},
+    setAttribute() {},
+    click() {},
+    remove() {},
+    select() {},
+    dataset: {}
+  };
+}
+
+function loadApp(initialStorage) {
+  const cache = new Map();
+  const storage = initialStorage || {};
+  const ctx = {
+    console,
+    setTimeout,
+    clearTimeout,
+    Date,
+    JSON,
+    Math,
+    String,
+    Array,
+    Object,
+    Set,
+    RegExp,
+    URL,
+    Blob,
+    localStorage: {
+      getItem(k) { return Object.prototype.hasOwnProperty.call(storage, k) ? storage[k] : null; },
+      setItem(k, v) { storage[k] = String(v); },
+      removeItem(k) { delete storage[k]; }
+    },
+    document: {
+      addEventListener() {},
+      querySelector(sel) {
+        if (!cache.has(sel)) cache.set(sel, makeEl(sel));
+        return cache.get(sel);
+      },
+      querySelectorAll() { return []; },
+      createElement() { return makeEl(''); },
+      body: makeEl('body')
+    },
+    window: {},
+    navigator: { clipboard: { writeText() { return Promise.resolve(); } } },
+    confirm() { return true; }
+  };
+  vm.createContext(ctx);
+  const code = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  vm.runInContext(code, ctx, { filename: 'app.js' });
+  ctx.__run = (expr) => vm.runInContext(expr, ctx);
+  ctx.__storage = storage;
+  return ctx;
+}
+
+module.exports = { loadApp };
