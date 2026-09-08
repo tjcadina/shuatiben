@@ -1122,8 +1122,9 @@ function renderPractice() {
         </div>
         <p class="question-text">${escapeHtml(q.question)}</p>
         ${answerUI}
-        <div class="action-row">${action}</div>
+        ${submitted ? '' : `<div class="action-row">${action}</div>`}
         ${resultPanel}
+        ${submitted ? `<div class="action-row">${action}</div>` : ''}
       </div>
     </div>`;
 
