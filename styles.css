@@ -244,3 +244,16 @@ input,textarea,select{font-family:inherit;color:inherit}
 .format-hint{background:#f0f4ff;border:1px solid #c9d7f8;border-radius:14px;padding:14px 16px;margin-bottom:16px}
 .fh-title{font-weight:800;color:#3b49b9;font-size:14px;margin-bottom:8px}
 .fh-text{font-size:13.5px;line-height:1.8;color:#334155;background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #dfe7f7;margin-bottom:10px;white-space:pre-wrap}
+/* Question progress dropdown */
+.progress-nav{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:18px;overflow:hidden}
+.progress-summary{list-style:none;cursor:pointer;padding:10px 14px}
+.progress-summary::-webkit-details-marker{display:none}
+.progress-hint{display:block;margin-top:6px;font-size:12px;color:var(--muted);text-align:center}
+.progress-nav[open] .progress-summary{border-bottom:1px solid var(--line)}
+.qnav-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:8px;padding:12px 14px;max-height:220px;overflow:auto;background:var(--surface-2)}
+.qnav-chip{border:1.5px solid var(--line);border-radius:10px;padding:7px 0;text-align:center;font-size:13px;font-weight:700;color:#64748b;background:#fff}
+.qnav-chip:hover{border-color:var(--primary);color:var(--primary)}
+.qnav-chip.ok{background:var(--green-soft);border-color:var(--green);color:var(--green)}
+.qnav-chip.bad{background:var(--red-soft);border-color:var(--red);color:var(--red)}
+.qnav-chip.todo{color:#94a3b8;background:#f8fafc}
+.qnav-chip.current{outline:2px solid var(--primary);outline-offset:1px}

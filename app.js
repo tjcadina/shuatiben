@@ -922,6 +922,21 @@ function renderWrongBook() {
 }
 
 /* ============================== 刷题模式 ============================== */
+function answerStatusClass(st) {
+  if (!st || !st.submitted) return 'todo';
+  return st.correct ? 'ok' : 'bad';
+}
+
+function goToQuestion(idx) {
+  if (!session) return;
+  if (idx < 0 || idx >= session.items.length) return;
+  clearTimeout(session._autoTimer);
+  session.index = idx;
+  if (session.mode === 'paper') savePaperProgress();
+  renderPractice();
+}
+
+
 function startPaper(paperId, wrongOnly) {
   const paper = db.papers.find((p) => p.id === paperId);
   if (!paper) return;
@@ -1077,13 +1092,28 @@ function renderPractice() {
     </div>`;
   }
 
+﻿﻿  const navChips = session.items.map((item, i) => {
+    const s = session.answers[i];
+    const cls = 'qnav-chip ' + answerStatusClass(s) + (i === index ? ' current' : '');
+    const tip = (s && s.submitted) ? (s.correct ? '答对' : '答错') : '未答';
+    return `<button type="button" class="${cls}" data-action="jump-question" data-index="${i}" title="第 ${i + 1} 题 · ${tip}">${i + 1}</button>`;
+  }).join('');
+  const progressNav = `
+      <details class="progress-nav" id="progressNav">
+        <summary class="progress-summary">
+          <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+          <span class="progress-hint">▾ 点击展开题目列表：绿=答对 / 红=答错 / 灰=未答</span>
+        </summary>
+        <div class="qnav-grid">${navChips}</div>
+      </details>`;
+
   root.innerHTML = `
     <div class="practice-shell">
       <div class="practice-top">
         <button class="back-link" data-action="exit-practice">← 退出刷题</button>
         <div class="progress-meta">第 ${index + 1} / ${total} 题</div>
       </div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+      ${progressNav}
       <div class="question-card">
         <div class="question-head">
           <span class="question-no">第 ${index + 1} 题</span>
@@ -1098,6 +1128,7 @@ function renderPractice() {
     </div>`;
 
   bindPracticeEvents();
+
 }
 
 function bindPracticeEvents() {
@@ -1588,6 +1619,7 @@ document.addEventListener('click', (e) => {
   if (action === 'open-upload') openUploadModal();
   else if (action === 'load-sample') loadSample();
   else if (action === 'start-paper') startPaper(id, false);
+  else if (action === 'jump-question') goToQuestion(Number(id));
   else if (action === 'start-paper-wrong') startPaper(id, true);
   else if (action === 'restart-paper') {
     if (confirm('重新开始会清除该试卷的答题进度，确定吗？')) {
