@@ -68,6 +68,21 @@ function toast(msg) {
 }
 
 /* ============================== 数据存储 ============================== */
+const THEME_KEY = 'shuatiben_theme';
+
+function applyTheme(theme) {
+  const t = ['light', 'eye', 'dark'].includes(theme) ? theme : 'light';
+  if (document.documentElement) document.documentElement.setAttribute('data-theme', t);
+  try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
+  $$('.theme-btn').forEach((btn) => btn.classList.toggle('active', btn.dataset.theme === t));
+}
+
+function initTheme() {
+  let saved = 'light';
+  try { saved = localStorage.getItem(THEME_KEY) || 'light'; } catch (e) {}
+  applyTheme(saved);
+}
+
 function loadDB() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -1869,6 +1884,11 @@ $('#backupOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'backupOverlay') closeBackupModal();
 });
 
+$$('.theme-btn').forEach((btn) => {
+  btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
+});
+
 /* ============================== 初始化 ============================== */
+initTheme();
 renderPapers();
 updateBadge();

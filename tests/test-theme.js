@@ -1,0 +1,11 @@
+﻿const assert = require('assert');
+const { loadApp } = require('./harness');
+const storage = {};
+const ctx = loadApp(storage);
+ctx.__run(`applyTheme('eye');`);
+assert.strictEqual(storage['shuatiben_theme'], 'eye', 'theme should persist');
+ctx.__run(`applyTheme('dark');`);
+assert.strictEqual(storage['shuatiben_theme'], 'dark', 'dark theme should persist');
+ctx.__run(`applyTheme('bogus');`);
+assert.strictEqual(storage['shuatiben_theme'], 'light', 'invalid theme should fall back to light');
+console.log('PASS test-theme');

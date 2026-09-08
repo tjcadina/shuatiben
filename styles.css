@@ -257,3 +257,55 @@ input,textarea,select{font-family:inherit;color:inherit}
 .qnav-chip.bad{background:var(--red-soft);border-color:var(--red);color:var(--red)}
 .qnav-chip.todo{color:#94a3b8;background:#f8fafc}
 .qnav-chip.current{outline:2px solid var(--primary);outline-offset:1px}
+/* Theme row in sidebar */
+.theme-row{display:flex;gap:6px;flex-wrap:wrap}
+.theme-btn{flex:1;min-width:70px;padding:8px 4px;border-radius:10px;background:rgba(255,255,255,.07);color:#e3e5ff;font-size:12px;border:1px solid rgba(255,255,255,.12)}
+.theme-btn:hover{background:rgba(255,255,255,.15)}
+.theme-btn.active{background:var(--primary);color:#fff;border-color:transparent}
+
+/* Eye-care theme */
+[data-theme="eye"]{
+  --bg:#eef3e7; --surface:#fbfff7; --surface-2:#f2f7ec; --text:#2c3a2a; --muted:#6d7a66;
+  --line:#d8e6cd; --primary:#3f8f4f; --primary-strong:#357c43; --primary-soft:#e6f3e6;
+  --green:#2f9e44; --red:#c44536; --amber:#b8860b;
+}
+[data-theme="eye"] body{background:var(--bg)}
+[data-theme="eye"] .sidebar{background:linear-gradient(180deg,#233d22,#162b16)}
+[data-theme="eye"] .brand-mark{background:linear-gradient(135deg,#55b06a,#3f8f4f)}
+[data-theme="eye"] .progress-fill{background:linear-gradient(90deg,#55b06a,#3f8f4f)}
+[data-theme="eye"] .btn-primary{background:linear-gradient(135deg,#55b06a,#3f8f4f)}
+[data-theme="eye"] .result-panel.good{background:var(--green-soft)}
+
+/* Dark theme */
+[data-theme="dark"]{
+  --bg:#0f172a; --surface:#1e293b; --surface-2:#273449; --text:#e2e8f0; --muted:#94a3b8;
+  --line:#334155; --primary:#818cf8; --primary-strong:#6366f1; --primary-soft:#2e3452;
+  --green:#22c55e; --green-soft:#143a24; --red:#f43f5e; --red-soft:#431722;
+  --amber:#f59e0b; --amber-soft:#3a2f0d; --shadow:0 12px 30px rgba(0,0,0,.35); --shadow-sm:0 4px 12px rgba(0,0,0,.25);
+}
+[data-theme="dark"] body{background:var(--bg)}
+[data-theme="dark"] .sidebar{background:linear-gradient(180deg,#0b1220,#080d17);color:#cbd5e1}
+[data-theme="dark"] .card,[data-theme="dark"] .question-card,[data-theme="dark"] .score-card,
+[data-theme="dark"] .score-main,[data-theme="dark"] .report-section,[data-theme="dark"] .wrong-entry,
+[data-theme="dark"] .paper-preview-card,[data-theme="dark"] .preview-box,[data-theme="dark"] .empty,
+[data-theme="dark"] .progress-nav,[data-theme="dark"] .option,[data-theme="dark"] .judge-btn,
+[data-theme="dark"] .analysis-box,[data-theme="dark"] .wrong-item,[data-theme="dark"] .result-panel.bad,
+[data-theme="dark"] .result-panel.good{background:var(--surface);border-color:var(--line)}
+[data-theme="dark"] .card:hover{border-color:#475569}
+[data-theme="dark"] .option:hover{background:var(--surface-2);border-color:#475569}
+[data-theme="dark"] .btn-outline{background:var(--surface);border-color:var(--line);color:var(--text)}
+[data-theme="dark"] .btn-ghost{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.16)}
+[data-theme="dark"] .modal,[data-theme="dark"] .modal-head{background:var(--surface);color:var(--text)}
+[data-theme="dark"] .modal-head{border-color:var(--line)}
+[data-theme="dark"] input[type=text],[data-theme="dark"] input[type=email],[data-theme="dark"] input[type=password],
+[data-theme="dark"] textarea,[data-theme="dark"] select{background:var(--surface-2);border-color:var(--line);color:var(--text)}
+[data-theme="dark"] .text-answer{background:var(--surface-2);border-color:var(--line);color:var(--text)}
+[data-theme="dark"] .qnav-chip{background:var(--surface-2);border-color:var(--line);color:#cbd5e1}
+[data-theme="dark"] .qnav-chip.todo{color:#64748b}
+[data-theme="dark"] .qnav-chip.ok{background:#143a24;border-color:#22c55e;color:#22c55e}
+[data-theme="dark"] .qnav-chip.bad{background:#431722;border-color:#f43f5e;color:#fb7185}
+[data-theme="dark"] .option-key{background:var(--surface-2);color:#cbd5e1}
+[data-theme="dark"] .preview-q{border-color:var(--line)}
+[data-theme="dark"] .pp-head{color:#a5b4fc}
+[data-theme="dark"] .toast{background:#e2e8f0;color:#0f172a}
+[data-theme="dark"] .subject-dot,[data-theme="dark"] .question-no,[data-theme="dark"] .tag-subject{color:var(--primary)}

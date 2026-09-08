@@ -43,6 +43,7 @@ function loadApp(initialStorage) {
       removeItem(k) { delete storage[k]; }
     },
     document: {
+      documentElement: { setAttribute() {}, getAttribute() { return null; }, dataset: {} },
       addEventListener() {},
       querySelector(sel) {
         if (!cache.has(sel)) cache.set(sel, makeEl(sel));
