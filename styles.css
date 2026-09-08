@@ -309,3 +309,5 @@ input,textarea,select{font-family:inherit;color:inherit}
 [data-theme="dark"] .pp-head{color:#a5b4fc}
 [data-theme="dark"] .toast{background:#e2e8f0;color:#0f172a}
 [data-theme="dark"] .subject-dot,[data-theme="dark"] .question-no,[data-theme="dark"] .tag-subject{color:var(--primary)}
+.speaker-btn{width:32px;height:32px;border-radius:10px;background:var(--primary-soft);color:var(--primary);font-size:16px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px}
+.speaker-btn:hover{background:var(--primary);color:#fff}

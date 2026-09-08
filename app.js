@@ -942,6 +942,31 @@ function answerStatusClass(st) {
   return st.correct ? 'ok' : 'bad';
 }
 
+function buildSpeechText(q) {
+  if (!q) return '';
+  let text = q.question || '';
+  if (q.options && q.options.length) {
+    const letters = q.options.map((_, i) => String.fromCharCode(65 + i));
+    text += '。选项：' + q.options.map((opt, i) => letters[i] + '，' + opt).join('。') + '。';
+  }
+  return text;
+}
+
+function speakCurrentQuestion() {
+  if (!session) return;
+  const text = buildSpeechText(session.items[session.index].q);
+  const synth = window.speechSynthesis;
+  if (!synth || typeof window.SpeechSynthesisUtterance === 'undefined') {
+    toast('当前浏览器不支持语音播报');
+    return;
+  }
+  synth.cancel();
+  const utter = new window.SpeechSynthesisUtterance(text);
+  utter.lang = 'zh-CN';
+  utter.rate = 1;
+  synth.speak(utter);
+}
+
 function goToQuestion(idx) {
   if (!session) return;
   if (idx < 0 || idx >= session.items.length) return;
@@ -1132,6 +1157,7 @@ function renderPractice() {
       <div class="question-card">
         <div class="question-head">
           <span class="question-no">第 ${index + 1} 题</span>
+          <button type="button" class="speaker-btn" data-action="speak-question" title="语音播报本题">🔊</button>
           <span class="tag">${typeName(q)}</span>
           ${session.subject ? `<span class="tag tag-subject">${escapeHtml(session.subject)}</span>` : ''}
         </div>
@@ -1636,6 +1662,7 @@ document.addEventListener('click', (e) => {
   else if (action === 'load-sample') loadSample();
   else if (action === 'start-paper') startPaper(id, false);
   else if (action === 'jump-question') goToQuestion(Number(id));
+  else if (action === 'speak-question') speakCurrentQuestion();
   else if (action === 'start-paper-wrong') startPaper(id, true);
   else if (action === 'restart-paper') {
     if (confirm('重新开始会清除该试卷的答题进度，确定吗？')) {

@@ -53,7 +53,10 @@ function loadApp(initialStorage) {
       createElement() { return makeEl(''); },
       body: makeEl('body')
     },
-    window: {},
+    window: {
+      speechSynthesis: { speaking: false, cancel() { this.cancelled = true; }, speak(u) { this.spoken = u; } },
+      SpeechSynthesisUtterance: function (text) { this.text = text; }
+    },
     navigator: { clipboard: { writeText() { return Promise.resolve(); } } },
     confirm() { return true; }
   };
