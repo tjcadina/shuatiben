@@ -19,5 +19,14 @@ assert.ok(css.includes('.brand-logo{width:120px'), '桌面版 Logo 宽度 120px�
 assert.ok(css.includes('.brand-logo{width:158px} /* 手机端 Logo 放大 1.2 倍'), '手机端 Logo 放大 1.2 倍（158px）');
 assert.ok(css.includes('.brand.brand-logo-mode{flex-direction:column;align-items:flex-start;gap:8px;padding:0 0 6px;margin:0}'), 'Logo 左上角对齐、去掉多余偏移');
 
+assert.ok(html.includes('rel="manifest" href="manifest.webmanifest"'), '应引用 manifest');
+assert.ok(html.includes('apple-mobile-web-app-title" content="vessel 刷题"'), '手机主屏应用名应为 vessel 刷题');
+for (const file of ['manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png']) {
+  assert.ok(fs.existsSync(path.join(root, file)), file + ' 应存在');
+}
+const manifest = fs.readFileSync(path.join(root, 'manifest.webmanifest'), 'utf8');
+assert.ok(manifest.includes('"name": "vessel 刷题"'), 'manifest 名称为 vessel 刷题');
+
 console.log('PASS test-brand');
+
 
