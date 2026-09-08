@@ -48,4 +48,20 @@ assert.strictEqual(ctx2.__run('fontFamilyName'), 'kai', 'family restored on relo
 assert.strictEqual(ctx2.__run("document.documentElement.style.zoom"), '1.2', 'zoom restored');
 assert.ok(ctx2.__run("document.body.style.fontFamily").includes('KaiTi'), 'kai font restored');
 
+
+// 多种黑体字体可用
+for (const k of ['hei', 'pingfang', 'yahei', 'harmonyos', 'sourcehan', 'dengxian', 'song', 'kai', 'yuan']) {
+  assert.ok(ctx.__run('FONT_FAMILIES.hasOwnProperty(' + JSON.stringify(k) + ')'), '字体可用: ' + k);
+}
+ctx.__run("applyFontFamily('yahei');");
+assert.strictEqual(ctx.__run('fontFamilyName'), 'yahei', '切换到微软雅黑');
+assert.ok(ctx.__run("document.body.style.fontFamily").includes('Microsoft YaHei'), '微软雅黑栈应用');
+
+// 显示面板可折叠，并记忆状态
+ctx.__run('setDisplayOpen(false);');
+assert.strictEqual(ctx.__run('isDisplayOpen()'), false, '面板折叠');
+assert.strictEqual(ctx.__storage['shuatiben_displayopen'], '0', '折叠状态已保存');
+ctx.__run('toggleDisplayPanel();');
+assert.strictEqual(ctx.__run('isDisplayOpen()'), true, '面板再次展开');
+
 console.log('PASS test-display');

@@ -89,10 +89,32 @@ const FONT_FAMILY_KEY = 'shuatiben_fontfamily';
 const FONT_FAMILIES = {
   default: '',
   hei: '"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",system-ui,-apple-system,sans-serif',
+  pingfang: '"PingFang SC","PingFang HK",system-ui,-apple-system,sans-serif',
+  yahei: '"Microsoft YaHei","微软雅黑",system-ui,sans-serif',
+  harmonyos: '"HarmonyOS Sans SC","HarmonyOS Sans","Source Han Sans SC",sans-serif',
+  sourcehan: '"Source Han Sans SC","Noto Sans CJK SC","思源黑体",sans-serif',
+  dengxian: '"DengXian","等线",system-ui,sans-serif',
   song: '"SimSun","Songti SC","Noto Serif CJK SC",serif',
   kai: '"KaiTi","Kaiti SC","STKaiti",serif',
   yuan: '"Yuanti SC","YouYuan","幼圆",sans-serif'
 };
+const DISPLAY_OPEN_KEY = 'shuatiben_displayopen';
+function isDisplayOpen() {
+  try {
+    const v = localStorage.getItem(DISPLAY_OPEN_KEY);
+    return v === null || v !== '0';
+  } catch (e) { return true; }
+}
+function setDisplayOpen(open) {
+  try { localStorage.setItem(DISPLAY_OPEN_KEY, open ? '1' : '0'); } catch (e) {}
+  const body = $('#displayBody');
+  if (body) body.classList.toggle('hidden', !open);
+  const t = $('#displayToggle');
+  if (t) t.textContent = (open ? '▾ ' : '▸ ') + 'Aa 显示设置';
+}
+function toggleDisplayPanel() {
+  setDisplayOpen(!isDisplayOpen());
+}
 let fontScale = 1;
 let fontFamilyName = 'default';
 
@@ -125,6 +147,7 @@ function initDisplaySettings() {
   try { family = localStorage.getItem(FONT_FAMILY_KEY) || 'default'; } catch (e) {}
   applyFontScale(scale);
   applyFontFamily(family);
+  setDisplayOpen(isDisplayOpen());
 }
 
 function setFontScaleBy(delta) {
@@ -141,11 +164,12 @@ function loadDB() {
         if (!Array.isArray(d.deletedPapers)) d.deletedPapers = [];
         if (!Array.isArray(d.deletedWrong)) d.deletedWrong = [];
         if (!d.clearedProgress || typeof d.clearedProgress !== 'object') d.clearedProgress = {};
+        if (!Array.isArray(d.favorites)) d.favorites = [];
         return d;
       }
     }
   } catch (e) {}
-  return { papers: [], wrongBook: [], progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {} };
+  return { papers: [], wrongBook: [], progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites: [] };
 }
 
 function saveDB() {
@@ -216,7 +240,8 @@ function normalizeDB(d) {
     progress: (d && d.progress && typeof d.progress === 'object') ? d.progress : {},
     deletedPapers: Array.isArray(d && d.deletedPapers) ? d.deletedPapers : [],
     deletedWrong: Array.isArray(d && d.deletedWrong) ? d.deletedWrong : [],
-    clearedProgress: (d && d.clearedProgress && typeof d.clearedProgress === 'object') ? d.clearedProgress : {}
+    clearedProgress: (d && d.clearedProgress && typeof d.clearedProgress === 'object') ? d.clearedProgress : {},
+    favorites: Array.isArray(d && d.favorites) ? d.favorites : []
   };
 }
 
@@ -282,7 +307,9 @@ function mergeDB(local, remote) {
     progress[key] = chosen;
   });
 
-  return { papers, wrongBook, progress, deletedPapers, deletedWrong, clearedProgress };
+  const favorites = mergeListById(a.favorites, b.favorites, (f) => f.favoritedAt || 0);
+
+  return { papers, wrongBook, progress, deletedPapers, deletedWrong, clearedProgress, favorites };
 }
 
 function loginStateUser(ls) {
@@ -301,6 +328,7 @@ function syncPayload() {
     deletedPapers: db.deletedPapers || [],
     deletedWrong: db.deletedWrong || [],
     clearedProgress: db.clearedProgress || {},
+    favorites: db.favorites || [],
     updatedAt: Date.now(),
     schema: 1
   };
@@ -1345,6 +1373,8 @@ function restoreAnswersFromProgress(progress, itemCount) {
 function updateBadge() {
   const badge = $('#wrongBadge');
   if (badge) badge.textContent = db.wrongBook.length;
+  const fav = $('#favBadge');
+  if (fav) fav.textContent = (db.favorites || []).length;
 }
 
 function setTopbar(title, subtitle) {
@@ -1494,6 +1524,117 @@ function renderWrongBook() {
   root.innerHTML = html;
 }
 
+
+/* ============================== 收藏题目 ============================== */
+function ensureFavorites() {
+  if (!Array.isArray(db.favorites)) db.favorites = [];
+}
+function isQuestionFavorited(paperId, qid) {
+  ensureFavorites();
+  return db.favorites.some((f) => f.paperId === (paperId || '') && f.questionId === qid);
+}
+
+// 收藏 / 取消收藏；返回 'added' | 'removed' | 'none'
+function toggleFavoriteQuestion(q, src) {
+  if (!q || !q.id) return 'none';
+  ensureFavorites();
+  const paperId = (src && src.paperId) || '';
+  const found = db.favorites.find((f) => f.paperId === paperId && f.questionId === q.id);
+  if (found) {
+    db.favorites = db.favorites.filter((f) => f.id !== found.id);
+    saveDB();
+    return 'removed';
+  }
+  db.favorites.unshift({
+    id: uid('f'),
+    paperId,
+    paperTitle: (src && src.title) || '',
+    subject: (src && src.subject) || '',
+    questionId: q.id,
+    question: cloneQuestion(q),
+    favoritedAt: Date.now()
+  });
+  saveDB();
+  return 'added';
+}
+
+function toggleFavoriteCurrentQuestion() {
+  if (!session) return;
+  const item = session.items[session.index];
+  const q = item && item.q;
+  if (!q) return;
+  const src = {
+    paperId: session.paperId || item.srcPaperId || '',
+    title: session.paperId ? session.title : (item.srcTitle || session.title || ''),
+    subject: session.subject || item.srcSubject || ''
+  };
+  const res = toggleFavoriteQuestion(q, src);
+  if (res === 'none') return;
+  renderPractice();
+  updateBadge();
+  toast(res === 'added' ? '已收藏本题 ⭐' : '已取消收藏');
+}
+
+function removeFavoriteById(id) {
+  ensureFavorites();
+  db.favorites = db.favorites.filter((f) => f.id !== id);
+  saveDB();
+}
+
+function renderFavorites() {
+  ensureFavorites();
+  setTopbar('收藏题目', '按科目归档的收藏题库，随时回来重看');
+  const root = $('#view-fav');
+  if (!db.favorites.length) {
+    root.innerHTML = `
+      <div class="empty">
+        <div class="emoji">⭐</div>
+        <h3>还没有收藏的题目</h3>
+        <p>答题时点击题目右上角的 ☆，就能把好题收进这里，按科目自动归档。</p>
+      </div>`;
+    return;
+  }
+  const groups = {};
+  for (const f of db.favorites) {
+    const key = f.subject || '其他';
+    (groups[key] = groups[key] || []).push(f);
+  }
+  const orderedKeys = [...SUBJECTS.filter((s) => groups[s]), ...Object.keys(groups).filter((s) => !SUBJECTS.includes(s))];
+  let html = `<div class="wrong-toolbar">
+      <span><b>${db.favorites.length}</b> 道收藏题</span>
+      <span class="spacer"></span>
+    </div>`;
+  for (const subject of orderedKeys) {
+    const list = groups[subject];
+    html += `<div class="subject-group">
+      <div class="subject-head">
+        <span class="subject-dot" style="background:${SUBJECT_COLORS[subject] || SUBJECT_COLORS['其他']}"></span>
+        <h3>${escapeHtml(subject)}</h3>
+        <span class="count">${list.length} 道</span>
+      </div>`;
+    for (const f of list) {
+      html += `<div class="wrong-entry">
+        <div class="q-body">
+          <p class="q-text">${escapeHtml(f.question.question)}</p>
+          <div class="meta">
+            <span>⭐ 收藏于 ${formatDate(f.favoritedAt)}</span>
+            ${f.paperTitle ? `<span>📄 ${escapeHtml(f.paperTitle)}</span>` : ''}
+          </div>
+          <details class="hint">
+            <summary>查看答案与解析</summary>
+            <div style="margin-top:8px"><b>答案：</b>${escapeHtml(answerDisplay(f.question))}<br/><b>解析：</b>${escapeHtml(f.question.analysis || '（无解析）')}</div>
+          </details>
+          <div class="actions">
+            <button class="btn btn-outline btn-sm" data-action="remove-fav" data-id="${f.id}">取消收藏</button>
+          </div>
+        </div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  root.innerHTML = html;
+}
+
 /* ============================== 刷题模式 ============================== */
 function answerStatusClass(st) {
   if (!st || !st.submitted) return 'todo';
@@ -1627,7 +1768,13 @@ function startWrongSession(items, title) {
 
 function startWrongPractice(wrongIds) {
   const list = db.wrongBook.filter((w) => wrongIds.includes(w.id));
-  startWrongSession(list.map((w) => ({ q: w.question, wrongId: w.id })));
+  startWrongSession(list.map((w) => ({
+    q: w.question,
+    wrongId: w.id,
+    srcPaperId: w.paperId,
+    srcTitle: w.paperTitle,
+    srcSubject: w.subject
+  })));
 }
 
 function renderPractice() {
@@ -1640,8 +1787,9 @@ function renderPractice() {
   const submitted = !!st.submitted;
   const answeredCount = session.answers.filter((a) => a && a.submitted).length;
   const pct = Math.round((answeredCount / total) * 100);
+  const favActive = isQuestionFavorited(session.paperId || (item.srcPaperId || ''), q.id);
 
-  setTopbar(session.title, `${session.mode === 'wrong' ? '错题重练' : '试卷刷题'} · 提交后显示答案与解析`);
+  setTopbar(session.title, `${session.mode === 'wrong' ? '错题重练' : '试卷刷题'} · 可点 ☆ 收藏本题`);
   showView('practice');
   const root = $('#view-practice');
 
@@ -1738,6 +1886,7 @@ function renderPractice() {
       <div class="question-card">
         <div class="question-head">
           <span class="question-no">第 ${index + 1} 题</span>
+          <button type="button" class="fav-btn ${favActive ? 'active' : ''}" data-action="toggle-fav" title="${favActive ? '取消收藏' : '收藏本题'}">${favActive ? '⭐' : '☆'}</button>
           <button type="button" class="speaker-btn" data-action="speak-question" title="语音播报本题">🔊</button>
           <span class="tag">${typeName(q)}</span>
           ${session.subject ? `<span class="tag tag-subject">${escapeHtml(session.subject)}</span>` : ''}
@@ -2259,7 +2408,7 @@ function importBackup() {
   const wrongBook = Array.isArray(data.wrongBook) ? data.wrongBook : [];
   if (!papers.length && !wrongBook.length) { toast('没有可导入的数据'); return; }
   if (!confirm('导入将覆盖当前设备的全部数据，是否继续？')) return;
-  db = { papers, wrongBook, progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {} };
+  db = { papers, wrongBook, progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites: [] };
   saveDB();
   closeBackupModal();
   renderPapers();
@@ -2344,6 +2493,13 @@ document.addEventListener('click', (e) => {
   else if (action === 'start-paper') startPaper(id, false);
   else if (action === 'jump-question') goToQuestion(Number(btn.dataset.index));
   else if (action === 'speak-question') speakCurrentQuestion();
+  else if (action === 'toggle-fav') toggleFavoriteCurrentQuestion();
+  else if (action === 'remove-fav') {
+    removeFavoriteById(id);
+    renderFavorites();
+    updateBadge();
+    toast('已取消收藏');
+  }
   else if (action === 'start-paper-wrong') startPaper(id, true);
   else if (action === 'restart-paper') {
     if (confirm('「重新开始」将结束本轮：保存本轮作答为上次记录，并从第 1 题开始新一轮。确定吗？')) {
@@ -2426,6 +2582,9 @@ $$('.nav-btn').forEach((btn) => {
     } else if (view === 'wrong') {
       showView('wrong');
       renderWrongBook();
+    } else if (view === 'fav') {
+      showView('fav');
+      renderFavorites();
     }
   });
 });
@@ -2597,6 +2756,7 @@ $$('.theme-btn').forEach((btn) => {
   btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
 });
 
+$('#displayToggle').addEventListener('click', toggleDisplayPanel);
 $('#fontDecBtn').addEventListener('click', () => setFontScaleBy(-0.1));
 $('#fontIncBtn').addEventListener('click', () => setFontScaleBy(0.1));
 $('#fontResetBtn').addEventListener('click', () => applyFontScale(1));

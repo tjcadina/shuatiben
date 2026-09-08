@@ -24,6 +24,7 @@
       <nav class="nav">
         <button class="nav-btn active" data-view="papers">📚 试卷库</button>
         <button class="nav-btn" data-view="wrong">📕 错题集 <span id="wrongBadge" class="badge">0</span></button>
+        <button class="nav-btn" data-view="fav">⭐ 收藏题目 <span id="favBadge" class="badge">0</span></button>
       </nav>
       <div class="sidebar-footer">
         <button id="openUploadBtn" class="btn-primary">＋ 上传试卷</button>
@@ -36,22 +37,29 @@
           <button class="theme-btn" data-theme="dark" title="夜间深色模式">🌙 夜间</button>
         </div>
         <div class="display-row">
-          <div class="dp-title">Aa 显示设置</div>
-          <div class="dp-line">
-            <span class="dp-label">字号</span>
-            <button class="dp-btn" id="fontDecBtn" title="缩小字号">A−</button>
-            <button class="dp-btn dp-val" id="fontResetBtn" title="恢复 100%">100%</button>
-            <button class="dp-btn" id="fontIncBtn" title="放大字号">A＋</button>
-          </div>
-          <div class="dp-line">
-            <span class="dp-label">字体</span>
-            <select id="fontFamilySelect" class="dp-select" title="切换正文字体">
-              <option value="default">系统默认</option>
-              <option value="hei">黑体</option>
-              <option value="song">宋体</option>
-              <option value="kai">楷体</option>
-              <option value="yuan">圆体</option>
-            </select>
+          <button type="button" class="dp-title" id="displayToggle" title="展开 / 折叠显示设置">▾ Aa 显示设置</button>
+          <div class="dp-body" id="displayBody">
+            <div class="dp-line">
+              <span class="dp-label">字号</span>
+              <button class="dp-btn" id="fontDecBtn" title="缩小字号">A−</button>
+              <button class="dp-btn dp-val" id="fontResetBtn" title="恢复 100%">100%</button>
+              <button class="dp-btn" id="fontIncBtn" title="放大字号">A＋</button>
+            </div>
+            <div class="dp-line">
+              <span class="dp-label">字体</span>
+              <select id="fontFamilySelect" class="dp-select" title="切换正文字体">
+                <option value="default">系统默认</option>
+                <option value="hei">黑体（系统）</option>
+                <option value="pingfang">黑体 · 苹方</option>
+                <option value="yahei">黑体 · 微软雅黑</option>
+                <option value="harmonyos">黑体 · 鸿蒙</option>
+                <option value="sourcehan">黑体 · 思源</option>
+                <option value="dengxian">黑体 · 等线</option>
+                <option value="song">宋体</option>
+                <option value="kai">楷体</option>
+                <option value="yuan">圆体</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -62,6 +70,7 @@
       <div class="content">
         <section id="view-papers" class="view active"></section>
         <section id="view-wrong" class="view"></section>
+        <section id="view-fav" class="view"></section>
         <section id="view-practice" class="view"></section>
         <section id="view-report" class="view"></section>
       </div>
@@ -212,6 +221,7 @@
   <script src="app.js"></script>
 </body>
 </html>
+
 
 
 
