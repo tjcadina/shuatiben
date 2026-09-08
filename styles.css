@@ -44,7 +44,7 @@ input,textarea,select{font-family:inherit;color:inherit}
   background:linear-gradient(135deg,#7c7cf0,#5b5bd6);color:#fff;box-shadow:0 8px 20px rgba(91,91,214,.45);
 }
 .brand h1{font-size:19px;margin:0;color:#fff}
-.brand p{margin:2px 0 0;font-size:11.5px;color:var(--sidebar-text)}
+.brand p{margin:3px 0 0;font-size:11.5px;line-height:1.65;color:var(--sidebar-text)}
 .nav{display:flex;flex-direction:column;gap:8px}
 .nav-btn{
   display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border-radius:13px;font-size:14.5px;
@@ -228,7 +228,7 @@ input,textarea,select{font-family:inherit;color:inherit}
   #app{flex-direction:column}
   .sidebar{width:100%;flex:auto;height:auto;position:static;padding:14px}
   .sidebar-footer{margin-top:6px;flex-direction:row}
-  .brand p{display:none}
+  .brand p{display:block;font-size:10.5px;line-height:1.5}
   .nav{flex-direction:row;overflow:auto}
   .nav-btn{width:auto}
   .topbar,.content{padding-left:16px;padding-right:16px}
@@ -375,3 +375,4 @@ input,textarea,select{font-family:inherit;color:inherit}
   .display-row{flex:1 1 100%}
   .dp-line{flex-wrap:wrap}
 }
+
