@@ -1834,8 +1834,8 @@ function nextQuestion() {
 }
 
 /* ============================== 左右滑动切换题目 ============================== */
-// 说明：向左滑（手指向左移动）→ 上一道题；向右滑 → 下一道题（在最后一题且已作答时进入答题报告）。
-// 如需改成主流相册式方向（左滑=下一题、右滑=上一题），把 swipeGo 中 dir 的映射对调即可。
+// 说明：向左滑（手指向左移动）→ 下一道题；向右滑 → 上一道题。
+// 在最后一题且已作答时，再向左滑会进入答题报告。
 function swipeNavigate(dir) {
   if (!session || !session.items) return;
   const total = session.items.length;
@@ -1861,7 +1861,7 @@ function handlePracticeSwipe(dx, dy) {
   const absX = Math.abs(dx);
   const absY = Math.abs(dy);
   if (absX < 60 || absX < absY * 1.2) return false; // 太短或偏向竖滑：不处理
-  swipeNavigate(dx < 0 ? 'prev' : 'next');
+  swipeNavigate(dx < 0 ? 'next' : 'prev');
   return true;
 }
 
@@ -2529,6 +2529,7 @@ updateBadge();
 initCloud();
 renderAccountArea();
 bindPracticeSwipe();
+
 
 
 
