@@ -2362,7 +2362,7 @@ function closeBackupModal() {
 }
 
 function generateBackup() {
-  $('#backupTextarea').value = JSON.stringify({ papers: db.papers, wrongBook: db.wrongBook, exportedAt: formatDate(Date.now()) }, null, 2);
+  $('#backupTextarea').value = JSON.stringify({ papers: db.papers, wrongBook: db.wrongBook, favorites: db.favorites || [], exportedAt: formatDate(Date.now()) }, null, 2);
   toast('已生成备份，可复制或下载');
 }
 
@@ -2406,9 +2406,10 @@ function importBackup() {
   }
   const papers = Array.isArray(data.papers) ? data.papers : [];
   const wrongBook = Array.isArray(data.wrongBook) ? data.wrongBook : [];
-  if (!papers.length && !wrongBook.length) { toast('没有可导入的数据'); return; }
+  const favorites = Array.isArray(data.favorites) ? data.favorites : [];
+  if (!papers.length && !wrongBook.length && !favorites.length) { toast('没有可导入的数据'); return; }
   if (!confirm('导入将覆盖当前设备的全部数据，是否继续？')) return;
-  db = { papers, wrongBook, progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites: [] };
+  db = { papers, wrongBook, progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites };
   saveDB();
   closeBackupModal();
   renderPapers();
