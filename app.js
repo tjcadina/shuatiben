@@ -1396,20 +1396,25 @@ function renderPapers() {
 ﻿    for (const p of papers) {
       const wrongCount = db.wrongBook.filter((w) => w.paperId === p.id).length;
       const hasProgress = !!(db.progress || {})[p.id];
+      const hasRecord = !!(p.lastRecord && p.lastRecord.answers);
       const last = p.lastResult
-        ? `<span>📈 上次 ${p.lastResult.accuracy}% · ${p.lastResult.correct}/${p.lastResult.total}</span>`
+        ? `<span>📈 上次 ${p.lastResult.accuracy}% · ${p.lastResult.correct}/${p.lastResult.total}${hasRecord ? ' · 📋 有完整记录' : ''}</span>`
         : `<span>🕒 ${formatDate(p.createdAt)}</span>`;
+      const mainAction = hasProgress ? 'start-paper' : (hasRecord ? 'restart-paper' : 'start-paper');
+      const mainLabel = hasProgress ? '继续上次' : (hasRecord ? '重新答题' : '开始刷题');
       html += `<div class="card">
         <div class="card-top">
           <span class="tag tag-subject" style="background:${SUBJECT_COLORS[subject] || SUBJECT_COLORS['其他']}22;color:${SUBJECT_COLORS[subject] || SUBJECT_COLORS['其他']}">${escapeHtml(subject)}</span>
           <span class="tag">${p.questions.length} 题</span>
           ${hasProgress ? '<span class="tag" style="background:#fff3cd;color:#8a6d1a">⏸ 未完成</span>' : ''}
+          ${hasRecord ? '<span class="tag" style="background:#e9f9ef;color:#16a34a">✅ 已完成</span>' : ''}
           ${wrongCount ? `<span class="tag" style="background:#fdeef2;color:#e11d48">错题 ${wrongCount}</span>` : ''}
         </div>
         <h4>${escapeHtml(p.title)}</h4>
         <div class="meta">${last}</div>
         <div class="card-actions">
-          <button class="btn btn-solid" data-action="start-paper" data-id="${p.id}">${hasProgress ? '继续上次' : '开始刷题'}</button>
+          <button class="btn btn-solid" data-action="${mainAction}" data-id="${p.id}">${mainLabel}</button>
+          ${hasRecord ? `<button class="btn btn-outline" data-action="view-record" data-id="${p.id}">📋 上次记录</button>` : ''}
           ${hasProgress ? `<button class="btn btn-outline btn-sm" data-action="restart-paper" data-id="${p.id}">重新开始</button>` : ''}
           ${wrongCount ? `<button class="btn btn-outline" data-action="start-paper-wrong" data-id="${p.id}">错题重练</button>` : ''}
           <button class="btn btn-outline btn-sm" data-action="edit-paper" data-id="${p.id}">编辑</button>
@@ -1937,6 +1942,88 @@ function bindPracticeSwipe() {
 }
 
 /* ============================== 答题报告 ============================== */
+
+/* ---- 答题记录：整卷保存与回看（仅在“重新答题”时清空） ---- */
+function savePaperAttemptToRecord(paper) {
+  if (!paper || !session || session.mode !== 'paper' || !session.items) return;
+  const answers = [];
+  for (let i = 0; i < session.items.length; i++) {
+    const st = session.answers[i];
+    answers.push(st && st.submitted
+      ? { userAnswer: st.userAnswer || '', correct: !!st.correct, selected: st.selected || '', text: st.text || '' }
+      : null);
+  }
+  const answeredCount = answers.filter(Boolean).length;
+  if (!answeredCount) return;
+  const total = session.items.length;
+  const correct = answers.filter((a) => a && a.correct).length;
+  const accuracy = total ? Math.round((correct / total) * 100) : 0;
+  paper.lastRecord = {
+    completedAt: Date.now(),
+    total,
+    correct,
+    wrong: total - correct,
+    accuracy,
+    durationSec: Math.max(0, Math.round((Date.now() - (session.startTime || Date.now())) / 1000)),
+    answers
+  };
+}
+
+function clearPaperRecord(id) {
+  const p = db.papers.find((x) => x.id === id);
+  if (!p) return;
+  if (p.lastResult || p.lastRecord) {
+    p.lastResult = null;
+    if ('lastRecord' in p) delete p.lastRecord;
+    saveDB();
+  }
+}
+
+function viewSavedRecord(id) {
+  const paper = db.papers.find((x) => x.id === id);
+  if (!paper || !paper.lastRecord) {
+    toast('该试卷还没有答题记录');
+    return;
+  }
+  const rec = paper.lastRecord;
+  setTopbar('上次答题记录', paper.title);
+  showView('report');
+  const root = $('#view-report');
+  const questions = paper.questions || [];
+  const rows = [];
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i];
+    const st = rec.answers && rec.answers[i];
+    const ua = st ? (st.userAnswer || '（未作答）') : '（未作答）';
+    const tag = !st
+      ? '<span style="color:#94a3b8">未答</span>'
+      : (st.correct ? '<span style="color:#16a34a">✅ 答对</span>' : '<span style="color:#e11d48">❌ 答错</span>');
+    rows.push(`<div class="wrong-item">
+      <div class="q">${i + 1}. ${escapeHtml(q.question)}</div>
+      <div>正确答案：<b>${escapeHtml(answerDisplay(q))}</b>　你的答案：${escapeHtml(ua)}　${tag}</div>
+      ${q.analysis ? `<div class="hint" style="margin-top:6px">${escapeHtml(q.analysis)}</div>` : ''}
+    </div>`);
+  }
+  root.innerHTML = `
+    <div class="report-shell">
+      <div class="score-row">
+        <div class="score-card"><div class="num">${rec.total || questions.length}</div><div class="lbl">总题数</div></div>
+        <div class="score-card"><div class="num" style="color:#16a34a">${rec.correct || 0}</div><div class="lbl">答对</div></div>
+        <div class="score-card"><div class="num" style="color:#e11d48">${rec.wrong || 0}</div><div class="lbl">答错</div></div>
+        <div class="score-card"><div class="num" style="color:#5b5bd6">${rec.accuracy || 0}%</div><div class="lbl">正确率</div></div>
+      </div>
+      <div class="meta" style="margin:0 0 16px;color:var(--muted)">完成时间：${formatDate(rec.completedAt)}</div>
+      <div class="report-section">
+        <h3>逐题记录</h3>
+        <div class="wrong-list">${rows.join('')}</div>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-outline" data-action="back-papers">返回试卷库</button>
+        <button class="btn btn-solid" data-action="restart-paper" data-id="${paper.id}">重新答题</button>
+      </div>
+    </div>`;
+}
+
 function feedbackText(acc) {
   if (acc >= 90) return '太强了！这套题掌握得很好。';
   if (acc >= 75) return '不错！再巩固一下错题就更稳了。';
@@ -1963,6 +2050,7 @@ function renderReport() {
     const paper = db.papers.find((p) => p.id === session.paperId);
     if (paper) {
       paper.lastResult = { score, accuracy, total, correct, date: Date.now() };
+      savePaperAttemptToRecord(paper); // 保存整份答题记录，重新答题时才会清空
       clearPaperProgress(session.paperId);
     }
   }
@@ -2302,12 +2390,14 @@ document.addEventListener('click', (e) => {
   else if (action === 'speak-question') speakCurrentQuestion();
   else if (action === 'start-paper-wrong') startPaper(id, true);
   else if (action === 'restart-paper') {
-    if (confirm('重新开始会清除该试卷的答题进度，确定吗？')) {
+    if (confirm('重新答题将清除该试卷上次的答题记录与进度，确定吗？')) {
+      clearPaperRecord(id);
       clearPaperProgress(id);
       renderPapers();
       startPaper(id, false);
     }
   }
+  else if (action === 'view-record') viewSavedRecord(id);
   else if (action === 'edit-paper') openEditPaper(id);
   else if (action === 'delete-paper') {
     const p = db.papers.find((x) => x.id === id);
@@ -2583,6 +2673,10 @@ updateBadge();
 initCloud();
 renderAccountArea();
 bindPracticeSwipe();
+
+
+
+
 
 
 
