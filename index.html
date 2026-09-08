@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
@@ -24,6 +24,7 @@
         <button id="openUploadBtn" class="btn-primary">＋ 上传试卷</button>
         <button id="loadSampleBtn" class="btn-ghost">载入示例试卷</button>
         <button id="openBackupBtn" class="btn-ghost">备份 / 恢复数据</button>
+        <div class="account-card" id="accountCard"></div>
         <div class="theme-row">
           <button class="theme-btn" data-theme="light" title="默认模式">☀️ 默认</button>
           <button class="theme-btn" data-theme="eye" title="护眼模式">🌿 护眼</button>
@@ -138,12 +139,50 @@
     </div>
   </div>
 
+  <div id="authOverlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="authModalTitle">登录账号</h3>
+        <button class="modal-close" id="authClose">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="auth-tabs">
+          <button type="button" class="auth-tab active" data-auth-tab="login">登录</button>
+          <button type="button" class="auth-tab" data-auth-tab="register">注册</button>
+          <button type="button" class="auth-tab" data-auth-tab="reset">找回密码</button>
+        </div>
+        <div id="authMsg" class="auth-msg hidden"></div>
+        <div class="field">
+          <label for="authEmail">邮箱</label>
+          <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email" />
+        </div>
+        <div class="field" id="authPwdField">
+          <label for="authPassword">密码</label>
+          <input type="password" id="authPassword" placeholder="至少 8 位，需含字母和数字" autocomplete="current-password" />
+        </div>
+        <div class="field" id="authPwd2Field">
+          <label for="authPassword2">确认密码</label>
+          <input type="password" id="authPassword2" placeholder="再次输入密码" autocomplete="new-password" />
+        </div>
+        <div class="auth-hint" id="authHint"></div>
+        <div class="modal-actions">
+          <button id="authCancel" class="btn btn-outline">取消</button>
+          <button id="authSubmit" class="btn btn-solid">登录</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast"></div>
 
   <script src="vendor/mammoth.browser.min.js"></script>
   <script src="vendor/pdf.min.js"></script>
+  <script src="vendor/cloudbase.full.js"></script>
+  <script src="cloudbase-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
+
+
 
 

@@ -22,7 +22,7 @@ function makeEl(sel) {
   };
 }
 
-function loadApp(initialStorage) {
+function loadApp(initialStorage, extra) {
   const cache = new Map();
   const storage = initialStorage || {};
   const ctx = {
@@ -67,6 +67,10 @@ function loadApp(initialStorage) {
     navigator: { clipboard: { writeText() { return Promise.resolve(); } } },
     confirm() { return true; }
   };
+  if (extra) {
+    if (extra.cloudbase) ctx.window.cloudbase = extra.cloudbase;
+    if (extra.config) ctx.window.CLOUDBASE_CONFIG = extra.config;
+  }
   vm.createContext(ctx);
   const code = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
   vm.runInContext(code, ctx, { filename: 'app.js' });
@@ -76,3 +80,4 @@ function loadApp(initialStorage) {
 }
 
 module.exports = { loadApp };
+

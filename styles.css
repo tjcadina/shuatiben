@@ -1,4 +1,4 @@
-:root{
+﻿:root{
   --bg:#f4f5fb;
   --surface:#ffffff;
   --surface-2:#f7f7fc;
@@ -206,7 +206,7 @@ input,textarea,select{font-family:inherit;color:inherit}
 .modal-body{padding:20px 24px 24px}
 .field{margin-bottom:16px}
 .field label{display:block;font-size:13px;font-weight:700;margin-bottom:7px}
-.field input[type=text],.field select,.field textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:12px;font-size:14px;background:#fff}
+.field input[type=text],.field input[type=email],.field input[type=password],.field select,.field textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:12px;font-size:14px;background:#fff}
 .field textarea{min-height:220px;resize:vertical;font-family:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",monospace;font-size:13px;line-height:1.6}
 .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(91,91,214,.10)}
 .dropzone{border:1.5px dashed #c9caf0;border-radius:14px;padding:28px;text-align:center;color:var(--muted);background:#fbfbff;cursor:pointer;transition:.16s}
@@ -311,3 +311,43 @@ input,textarea,select{font-family:inherit;color:inherit}
 [data-theme="dark"] .subject-dot,[data-theme="dark"] .question-no,[data-theme="dark"] .tag-subject{color:var(--primary)}
 .speaker-btn{width:32px;height:32px;border-radius:10px;background:var(--primary-soft);color:var(--primary);font-size:16px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px}
 .speaker-btn:hover{background:var(--primary);color:#fff}
+
+/* ============ 账号 / 云端同步 ============ */
+.account-card{
+  display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:14px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+}
+.ac-state{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#dfe1ff;line-height:1.5}
+.ac-state .ac-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.ac-state .ac-dot.on{background:#34d399;box-shadow:0 0 8px #34d399}
+.ac-state .ac-dot.off{background:#94a3b8}
+.ac-state .ac-dot.err{background:#fb7185}
+.ac-user{font-weight:700;color:#fff;word-break:break-all}
+.ac-sub{font-size:11.5px;color:#aab0d8;line-height:1.5}
+.ac-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ac-actions .btn{flex:1;justify-content:center;padding:8px 10px;font-size:12.5px}
+.ac-btn-login{background:linear-gradient(135deg,#6d6df0,#5454d6);color:#fff}
+.ac-btn-login:hover{filter:brightness(1.08)}
+.ac-btn-out{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.18)}
+.ac-btn-out:hover{background:rgba(255,255,255,.18)}
+@media (max-width:820px){
+  .account-card{flex:1 1 100%}
+}
+[data-theme="eye"] .account-card{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.18)}
+[data-theme="dark"] .account-card{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1)}
+[data-theme="dark"] .ac-user{color:#f1f5f9}
+[data-theme="dark"] .ac-state,[data-theme="dark"] .ac-sub{color:#cbd5e1}
+
+/* 登录弹窗 */
+.auth-tabs{display:flex;gap:6px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:14px}
+.auth-tab{flex:1;padding:9px 6px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--muted);transition:.16s ease}
+.auth-tab.active{background:var(--surface);color:var(--primary);box-shadow:0 2px 8px rgba(30,32,74,.08)}
+.auth-msg{border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6;margin-bottom:12px}
+.auth-msg.ok{background:var(--green-soft);color:var(--green)}
+.auth-msg.bad{background:var(--red-soft);color:var(--red)}
+.auth-msg.info{background:var(--primary-soft);color:var(--primary)}
+.auth-hint{font-size:12.5px;color:var(--muted);line-height:1.7;background:var(--surface-2);border:1px dashed var(--line);border-radius:10px;padding:10px 12px;margin-top:2px}
+.auth-hint b{color:var(--text)}
+[data-theme="dark"] .auth-tab.active{background:var(--primary-soft);color:#c7d2fe;box-shadow:none}
+[data-theme="eye"] .auth-tab.active{background:var(--surface)}
+

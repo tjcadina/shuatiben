@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 /* ============================== 常量与工具 ============================== */
 const STORAGE_KEY = 'shuatiben_v1';
@@ -90,21 +90,510 @@ function loadDB() {
       const d = JSON.parse(raw);
       if (d && Array.isArray(d.papers) && Array.isArray(d.wrongBook)) {
         if (!d.progress || typeof d.progress !== 'object') d.progress = {};
+        if (!Array.isArray(d.deletedPapers)) d.deletedPapers = [];
+        if (!Array.isArray(d.deletedWrong)) d.deletedWrong = [];
+        if (!d.clearedProgress || typeof d.clearedProgress !== 'object') d.clearedProgress = {};
         return d;
       }
     }
   } catch (e) {}
-  return { papers: [], wrongBook: [], progress: {} };
+  return { papers: [], wrongBook: [], progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {} };
 }
 
 function saveDB() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  scheduleCloudPush();
 }
 
 let db = loadDB();
 let session = null;
 let pendingImport = null;
 let pendingTitle = '未命名试卷';
+
+/* ============================== 腾讯云开发 CloudBase：账号登录 + 云端同步 ============================== */
+const CLOUD_UID_KEY = 'shuatiben_cloud_uid';
+const CLOUD_EMAIL_KEY = 'shuatiben_cloud_email';
+const SYNC_COLLECTION = 'shuatiben_users';
+
+const cloud = {
+  enabled: false,
+  config: null,
+  app: null,
+  auth: null,
+  db: null,
+  user: null,
+  state: 'off', // off | connecting | signed-in | anon | error
+  error: '',
+  lastSyncAt: 0,
+  syncing: false,
+  pending: false,
+  timer: null
+};
+
+function cloudConfig() {
+  if (typeof window !== 'undefined' && window.CLOUDBASE_CONFIG && window.CLOUDBASE_CONFIG.env) {
+    return window.CLOUDBASE_CONFIG;
+  }
+  return null;
+}
+
+function cloudSDK() {
+  return (typeof window !== 'undefined' && window.cloudbase) ? window.cloudbase : null;
+}
+
+function readCloudUid() {
+  try { return localStorage.getItem(CLOUD_UID_KEY) || ''; } catch (e) { return ''; }
+}
+function writeCloudUid(uid) {
+  try {
+    if (uid) localStorage.setItem(CLOUD_UID_KEY, uid);
+    else localStorage.removeItem(CLOUD_UID_KEY);
+  } catch (e) {}
+}
+function readCloudEmail() {
+  try { return localStorage.getItem(CLOUD_EMAIL_KEY) || ''; } catch (e) { return ''; }
+}
+function writeCloudEmail(email) {
+  try {
+    if (email) localStorage.setItem(CLOUD_EMAIL_KEY, email);
+    else localStorage.removeItem(CLOUD_EMAIL_KEY);
+  } catch (e) {}
+}
+
+function normalizeDB(d) {
+  return {
+    papers: Array.isArray(d && d.papers) ? d.papers : [],
+    wrongBook: Array.isArray(d && d.wrongBook) ? d.wrongBook : [],
+    progress: (d && d.progress && typeof d.progress === 'object') ? d.progress : {},
+    deletedPapers: Array.isArray(d && d.deletedPapers) ? d.deletedPapers : [],
+    deletedWrong: Array.isArray(d && d.deletedWrong) ? d.deletedWrong : [],
+    clearedProgress: (d && d.clearedProgress && typeof d.clearedProgress === 'object') ? d.clearedProgress : {}
+  };
+}
+
+function recordTombstone(kind, id) {
+  if (!id) return;
+  if (kind === 'clearedProgress') {
+    if (!db.clearedProgress || typeof db.clearedProgress !== 'object') db.clearedProgress = {};
+    db.clearedProgress[id] = Math.max(db.clearedProgress[id] || 0, Date.now());
+    return;
+  }
+  const arrKey = kind === 'deletedPapers' ? 'deletedPapers' : 'deletedWrong';
+  if (!Array.isArray(db[arrKey])) db[arrKey] = [];
+  if (!db[arrKey].includes(id)) db[arrKey].push(id);
+}
+
+function unionList(a, b) {
+  const s = new Set(a || []);
+  (b || []).forEach((x) => s.add(x));
+  return Array.from(s);
+}
+
+function mergeListById(arrA, arrB, tsFn) {
+  const map = new Map();
+  (arrA || []).forEach((it) => { if (it && it.id != null) map.set(it.id, it); });
+  (arrB || []).forEach((it) => {
+    if (!it || it.id == null) return;
+    const ex = map.get(it.id);
+    if (!ex) map.set(it.id, it);
+    else if ((tsFn(it) || 0) > (tsFn(ex) || 0)) map.set(it.id, it);
+  });
+  return Array.from(map.values());
+}
+
+function mergeDB(local, remote) {
+  const a = normalizeDB(local);
+  const b = normalizeDB(remote);
+  const deletedPapers = unionList(a.deletedPapers, b.deletedPapers);
+  const deletedWrong = unionList(a.deletedWrong, b.deletedWrong);
+  const clearedProgress = {};
+  Object.keys(a.clearedProgress || {}).forEach((k) => { clearedProgress[k] = a.clearedProgress[k] || 0; });
+  Object.keys(b.clearedProgress || {}).forEach((k) => {
+    clearedProgress[k] = Math.max(clearedProgress[k] || 0, b.clearedProgress[k] || 0);
+  });
+
+  const papers = mergeListById(a.papers, b.papers, (p) => p.updatedAt || p.createdAt || 0)
+    .filter((p) => !deletedPapers.includes(p.id));
+
+  const wrongBook = mergeListById(a.wrongBook, b.wrongBook, (w) => w.lastWrongAt || 0)
+    .filter((w) => !deletedWrong.includes(w.id) && !deletedPapers.includes(w.paperId));
+
+  const progress = {};
+  Object.keys(a.progress || {}).concat(Object.keys(b.progress || {})).forEach((key) => {
+    if (deletedPapers.includes(key)) return;
+    const pa = (a.progress || {})[key];
+    const pb = (b.progress || {})[key];
+    let chosen;
+    if (!pa) chosen = pb;
+    else if (!pb) chosen = pa;
+    else chosen = (pb.updatedAt || 0) > (pa.updatedAt || 0) ? pb : pa;
+    if (!chosen) return;
+    const clearedAt = clearedProgress[key] || 0;
+    if (clearedAt && (chosen.updatedAt || 0) <= clearedAt) return;
+    progress[key] = chosen;
+  });
+
+  return { papers, wrongBook, progress, deletedPapers, deletedWrong, clearedProgress };
+}
+
+function loginStateUser(ls) {
+  if (!ls) return null;
+  const u = ls.user || ls;
+  if (!u) return null;
+  const uid = u.uid || u._id || u.openid || u.id;
+  return uid ? { uid: String(uid), email: u.email || u.mail || '' } : null;
+}
+
+function syncPayload() {
+  return {
+    papers: db.papers,
+    wrongBook: db.wrongBook,
+    progress: db.progress,
+    deletedPapers: db.deletedPapers || [],
+    deletedWrong: db.deletedWrong || [],
+    clearedProgress: db.clearedProgress || {},
+    updatedAt: Date.now(),
+    schema: 1
+  };
+}
+
+function scheduleCloudPush() {
+  if (!cloud.enabled || cloud.state !== 'signed-in' || !cloud.user) return;
+  if (cloud.syncing) { cloud.pending = true; return; }
+  const delay = (cloud.config && cloud.config.debounceMs != null) ? cloud.config.debounceMs : 1200;
+  clearTimeout(cloud.timer);
+  cloud.timer = setTimeout(() => { cloud.timer = null; pushDB(); }, delay);
+}
+
+async function pushDB() {
+  if (!cloud.enabled || cloud.state !== 'signed-in' || !cloud.user || !cloud.db) return;
+  if (cloud.syncing) { cloud.pending = true; return; }
+  cloud.syncing = true;
+  try {
+    await cloud.db.collection(SYNC_COLLECTION).doc(cloud.user.uid).set(syncPayload());
+    cloud.lastSyncAt = Date.now();
+    cloud.error = '';
+    renderAccountArea();
+  } catch (e) {
+    console.error('[cloud] push failed', e);
+    cloud.error = friendlyCloudError(e, '上传');
+    renderAccountArea();
+  } finally {
+    cloud.syncing = false;
+    if (cloud.pending) { cloud.pending = false; scheduleCloudPush(); }
+  }
+}
+
+function isNotFoundError(e) {
+  const msg = String((e && (e.message || e.msg || e.code)) || e || '').toLowerCase();
+  return msg.includes('not found') || msg.includes('notfound') || msg.includes('不存在') ||
+    msg.includes('document') || msg.includes('记录') || msg.includes('404');
+}
+
+async function pullAndMerge() {
+  const uid = cloud.user && cloud.user.uid;
+  if (!cloud.enabled || !uid || !cloud.db) return;
+  if (cloud.syncing) { cloud.pending = true; return; }
+  cloud.syncing = true;
+  try {
+    let data = null;
+    let remoteExists = false;
+    try {
+      const res = await cloud.db.collection(SYNC_COLLECTION).doc(uid).get();
+      data = res && res.data ? res.data : null;
+      remoteExists = !!(data && (Array.isArray(data.papers) || Array.isArray(data.wrongBook) || data.progress));
+    } catch (e) {
+      // 部分版本的 SDK 在“文档不存在”时会抛错；按空数据处理即可
+      if (isNotFoundError(e)) { data = null; remoteExists = false; }
+      else throw e;
+    }
+    const remote = normalizeDB(data);
+    const lastUid = readCloudUid();
+    let merged;
+    if (remoteExists && lastUid && lastUid !== uid) {
+      merged = remote; // 本机曾登录过其他账号：以云端为准，避免把别的账号数据混进来
+    } else if (remoteExists) {
+      merged = mergeDB(db, remote);
+    } else {
+      merged = normalizeDB(db);
+    }
+    db = merged;
+    writeCloudUid(uid);
+    saveDB();
+    renderAll();
+    cloud.lastSyncAt = Date.now();
+    cloud.error = '';
+    renderAccountArea();
+  } catch (e) {
+    console.error('[cloud] pull failed', e);
+    cloud.error = friendlyCloudError(e, '下载');
+    renderAccountArea();
+  } finally {
+    cloud.syncing = false;
+    if (cloud.pending) { cloud.pending = false; scheduleCloudPush(); }
+  }
+}
+
+function friendlyCloudError(e, op) {
+  const msg = String((e && (e.message || e.msg)) || e || '');
+  const low = msg.toLowerCase();
+  if (low.includes('permission') || low.includes('denied') || low.includes('无权限') || low.includes('权限') || low.includes('forbidden')) {
+    return `${op}失败：数据库暂无读写权限。请在云开发控制台 → 数据库 → ${SYNC_COLLECTION} 集合的“权限设置”中，把规则改为允许登录用户读写自己的文档（例如：{"read": "auth != null && doc._id == auth.uid", "write": "auth != null && doc._id == auth.uid"}）。`;
+  }
+  if (low.includes('collection') || low.includes('not exist') || low.includes('不存在') || low.includes('未找到') || low.includes('not found')) {
+    return `${op}失败：请先在云开发控制台 → 数据库 中创建名为 ${SYNC_COLLECTION} 的集合（文档型）。`;
+  }
+  if (low.includes('email') || low.includes('邮箱') || low.includes('password') || low.includes('密码') || low.includes('user') || low.includes('用户') || low.includes('verify') || low.includes('激活') || low.includes('验证')) {
+    return `${op}失败：${msg}（如刚注册，请先到邮箱点击激活链接；确认已在控制台开启“邮箱登录”并配置发件邮箱）。`;
+  }
+  return `${op}失败：${msg || '网络异常，请稍后重试'}（若环境为新版身份认证，请把 cloudbase-config.js 中的 clientId 填上）。`;
+}
+
+function renderAll() {
+  renderPapers();
+  renderWrongBook();
+  updateBadge();
+}
+
+async function onAuthStateChange(loginState) {
+  const user = loginStateUser(loginState);
+  const prevUid = cloud.user && cloud.user.uid;
+  cloud.user = user;
+  if (user) {
+    cloud.state = 'signed-in';
+    cloud.error = '';
+    if (user.email) writeCloudEmail(user.email);
+    closeAuthModal();
+    if (prevUid !== user.uid) {
+      toast('登录成功，正在同步云端数据…');
+      await pullAndMerge();
+    } else {
+      renderAccountArea();
+    }
+  } else {
+    cloud.state = 'anon';
+    cloud.user = null;
+    renderAccountArea();
+  }
+}
+
+function validateEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+}
+function validPassword(pwd) {
+  return /^(?=.*[A-Za-z])(?=.*\d).{8,32}$/.test(String(pwd || ''));
+}
+
+async function registerAccount(email, pwd) {
+  if (!cloud.auth) throw new Error('云服务未就绪，请稍后重试');
+  if (typeof cloud.auth.signUpWithEmailAndPassword === 'function') {
+    await cloud.auth.signUpWithEmailAndPassword(email, pwd);
+    return;
+  }
+  if (typeof cloud.auth.signUp === 'function') {
+    throw new Error('当前环境为新版身份认证，邮箱注册需邮箱验证码，暂不支持直接密码注册。请改用“登录”，或到云开发控制台开启邮箱验证码登录。');
+  }
+  throw new Error('当前环境未开启邮箱注册，请在云开发控制台“登录授权”中开启邮箱登录。');
+}
+
+async function loginAccount(email, pwd) {
+  if (!cloud.auth) throw new Error('云服务未就绪，请稍后重试');
+  let loginState;
+  if (typeof cloud.auth.signInWithEmailAndPassword === 'function') {
+    loginState = await cloud.auth.signInWithEmailAndPassword(email, pwd);
+  } else if (typeof cloud.auth.signIn === 'function') {
+    loginState = await cloud.auth.signIn({ username: email, password: pwd });
+  } else {
+    throw new Error('当前环境未开启邮箱登录，请在云开发控制台“登录授权”中开启邮箱登录。');
+  }
+  await onAuthStateChange(loginState);
+  return loginState;
+}
+
+async function logoutAccount() {
+  if (!cloud.auth) return;
+  try {
+    if (typeof cloud.auth.signOut === 'function') await cloud.auth.signOut();
+  } catch (e) {
+    console.error('[cloud] logout failed', e);
+  }
+  if (cloud.user) {
+    cloud.state = 'anon';
+    cloud.user = null;
+    renderAccountArea();
+  }
+}
+
+async function sendResetEmail(email) {
+  if (!cloud.auth) throw new Error('云服务未就绪，请稍后重试');
+  if (typeof cloud.auth.sendPasswordResetEmail === 'function') {
+    await cloud.auth.sendPasswordResetEmail(email);
+    return;
+  }
+  throw new Error('当前环境不支持邮箱找回密码，请在云开发控制台配置。');
+}
+
+/* ---- 登录弹窗 / 账号卡片 ---- */
+let authMode = 'login';
+
+function showAuthMsg(text, kind) {
+  const el = $('#authMsg');
+  el.textContent = text || '';
+  el.className = 'auth-msg ' + (kind || 'info') + (text ? '' : ' hidden');
+}
+
+function updateAuthTabs() {
+  $$('.auth-tab').forEach((b) => b.classList.toggle('active', b.dataset.authTab === authMode));
+  const isLogin = authMode === 'login';
+  const isRegister = authMode === 'register';
+  const isReset = authMode === 'reset';
+  $('#authPwdField').classList.toggle('hidden', isReset);
+  $('#authPwd2Field').classList.toggle('hidden', !isRegister);
+  $('#authModalTitle').textContent = isLogin ? '登录账号' : (isRegister ? '注册账号' : '找回密码');
+  $('#authSubmit').textContent = isLogin ? '登录' : (isRegister ? '注册' : '发送重置邮件');
+  const hint = $('#authHint');
+  if (isLogin) hint.innerHTML = '登录后，本机数据会自动与云端合并，手机 / 电脑登录同一账号即可互通。';
+  else if (isRegister) hint.innerHTML = '注册后请到邮箱点击<b>激活链接</b>完成注册，再回来登录。';
+  else hint.innerHTML = '输入注册时使用的邮箱，系统会发送一封重置密码邮件。';
+}
+
+function openAuthModal(mode) {
+  authMode = mode || 'login';
+  $('#authEmail').value = readCloudEmail();
+  $('#authPassword').value = '';
+  $('#authPassword2').value = '';
+  showAuthMsg('');
+  updateAuthTabs();
+  $('#authOverlay').classList.remove('hidden');
+}
+
+function closeAuthModal() {
+  $('#authOverlay').classList.add('hidden');
+}
+
+async function submitAuth() {
+  const email = String($('#authEmail').value || '').trim();
+  if (!validateEmail(email)) {
+    showAuthMsg('请输入正确的邮箱地址', 'bad');
+    return;
+  }
+  if (authMode === 'reset') {
+    const btn = $('#authSubmit');
+    btn.disabled = true;
+    try {
+      await sendResetEmail(email);
+      showAuthMsg('重置邮件已发送，请到邮箱按提示重设密码。', 'ok');
+    } catch (e) {
+      console.error(e);
+      showAuthMsg(friendlyCloudError(e, '操作'), 'bad');
+    } finally {
+      btn.disabled = false;
+    }
+    return;
+  }
+  const pwd = String($('#authPassword').value || '');
+  if (!validPassword(pwd)) {
+    showAuthMsg('密码需为 8-32 位，且同时包含字母和数字。', 'bad');
+    return;
+  }
+  const btn = $('#authSubmit');
+  btn.disabled = true;
+  try {
+    if (authMode === 'register') {
+      const pwd2 = String($('#authPassword2').value || '');
+      if (pwd !== pwd2) {
+        showAuthMsg('两次输入的密码不一致。', 'bad');
+        return;
+      }
+      await registerAccount(email, pwd);
+      showAuthMsg('注册成功！已向邮箱发送激活邮件，请点击邮件中的链接完成激活后登录。', 'ok');
+      authMode = 'login';
+      updateAuthTabs();
+      $('#authPassword').value = '';
+      $('#authPassword2').value = '';
+    } else {
+      await loginAccount(email, pwd);
+      // 登录成功由 onAuthStateChange 处理：关弹窗 + 拉取合并云端数据
+    }
+  } catch (e) {
+    console.error(e);
+    showAuthMsg(friendlyCloudError(e, '操作'), 'bad');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderAccountArea() {
+  const card = $('#accountCard');
+  if (!card) return;
+  const cfg = cloudConfig();
+  const sdk = cloudSDK();
+  if (!cfg || !sdk) return; // 未配置云服务：不显示账号区
+  let html;
+  if (cloud.state === 'signed-in' && cloud.user) {
+    const email = cloud.user.email || readCloudEmail() || '已登录';
+    const sub = cloud.error
+      ? '⚠ ' + cloud.error
+      : (cloud.lastSyncAt ? '上次同步：' + formatDate(cloud.lastSyncAt) : '已开启云端自动同步');
+    html = `<div class="ac-state"><span class="ac-dot on"></span><span>云端同步已开启</span></div>
+      <div class="ac-user">👤 ${escapeHtml(email)}</div>
+      <div class="ac-sub">${escapeHtml(sub)}</div>
+      <div class="ac-actions"><button class="btn ac-btn-out" id="accountLogoutBtn">退出登录</button></div>`;
+  } else if (cloud.state === 'connecting') {
+    html = `<div class="ac-state"><span class="ac-dot off"></span><span>正在连接云端…</span></div>`;
+  } else {
+    const tip = cloud.error ? '⚠ ' + cloud.error : '登录后，手机 / 电脑数据自动互通';
+    html = `<div class="ac-state"><span class="ac-dot ${cloud.error ? 'err' : 'off'}"></span><span>未登录 · 数据仅在本机</span></div>
+      <div class="ac-sub">${escapeHtml(tip)}</div>
+      <div class="ac-actions"><button class="btn ac-btn-login" id="accountLoginBtn">登录 / 注册</button></div>`;
+  }
+  card.innerHTML = html;
+  const loginBtn = $('#accountLoginBtn');
+  if (loginBtn) loginBtn.addEventListener('click', () => openAuthModal('login'));
+  const outBtn = $('#accountLogoutBtn');
+  if (outBtn) outBtn.addEventListener('click', () => logoutAccount());
+}
+
+async function initCloud() {
+  const cfg = cloudConfig();
+  const sdk = cloudSDK();
+  if (!cfg || !sdk) return;
+  cloud.enabled = true;
+  cloud.config = cfg;
+  try {
+    const initOpts = { env: cfg.env };
+    if (cfg.region) initOpts.region = cfg.region;
+    if (cfg.clientId) initOpts.clientId = cfg.clientId;
+    cloud.app = sdk.init(initOpts);
+    cloud.auth = cloud.app && typeof cloud.app.auth === 'function' ? cloud.app.auth({ persistence: 'local' }) : null;
+    cloud.db = cloud.app && typeof cloud.app.database === 'function' ? cloud.app.database() : null;
+  } catch (e) {
+    cloud.state = 'error';
+    cloud.error = '云服务初始化失败：' + (e && e.message ? e.message : e);
+    renderAccountArea();
+    return;
+  }
+  if (!cloud.auth) {
+    cloud.state = 'error';
+    cloud.error = '当前加载的云 SDK 不支持账号登录';
+    renderAccountArea();
+    return;
+  }
+  cloud.state = 'connecting';
+  renderAccountArea();
+  try {
+    if (typeof cloud.auth.onLoginStateChanged === 'function') {
+      cloud.auth.onLoginStateChanged((ls) => { onAuthStateChange(ls); });
+    }
+    const ls = (typeof cloud.auth.getLoginState === 'function') ? await cloud.auth.getLoginState() : null;
+    await onAuthStateChange(ls);
+  } catch (e) {
+    console.error('[cloud] init login state failed', e);
+    cloud.state = 'anon';
+    cloud.error = '';
+    renderAccountArea();
+  }
+}
 
 /* ============================== 科目识别 ============================== */
 function countKeywordScore(text, words) {
@@ -724,6 +1213,7 @@ function upsertWrong(paper, q, lastAnswer) {
 
 function removeWrongById(id) {
   db.wrongBook = db.wrongBook.filter((w) => w.id !== id);
+  recordTombstone('deletedWrong', id);
 }
 
 /* ============================== 进度保存 ============================== */
@@ -763,8 +1253,11 @@ function getPaperProgress(paperId) {
 
 function clearPaperProgress(paperId) {
   ensureProgressStore();
-  if (db.progress[paperId]) {
-    delete db.progress[paperId];
+  const had = !!db.progress[paperId];
+  if (had) delete db.progress[paperId];
+  if (had) {
+    if (!db.clearedProgress || typeof db.clearedProgress !== 'object') db.clearedProgress = {};
+    db.clearedProgress[paperId] = Math.max(db.clearedProgress[paperId] || 0, Date.now());
     saveDB();
   }
 }
@@ -1504,6 +1997,7 @@ function confirmImport() {
       title,
       subject,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       questions: p.questions.map((q) => ({ ...q, subject })),
       lastResult: null
     };
@@ -1540,6 +2034,7 @@ function saveEditPaper() {
   if (!p) { closeEditPaper(); return; }
   p.title = $('#editTitle').value.trim() || p.title;
   p.subject = $('#editSubject').value;
+  p.updatedAt = Date.now();
   db.wrongBook.forEach((w) => {
     if (w.paperId === p.id) {
       w.paperTitle = p.title;
@@ -1609,7 +2104,7 @@ function importBackup() {
   const wrongBook = Array.isArray(data.wrongBook) ? data.wrongBook : [];
   if (!papers.length && !wrongBook.length) { toast('没有可导入的数据'); return; }
   if (!confirm('导入将覆盖当前设备的全部数据，是否继续？')) return;
-  db = { papers, wrongBook };
+  db = { papers, wrongBook, progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {} };
   saveDB();
   closeBackupModal();
   renderPapers();
@@ -1638,6 +2133,7 @@ function loadSample() {
     title: '示例 · 数学基础练习',
     subject: '数学',
     createdAt: Date.now(),
+    updatedAt: Date.now(),
     questions,
     lastResult: null
   });
@@ -1706,6 +2202,8 @@ document.addEventListener('click', (e) => {
     const p = db.papers.find((x) => x.id === id);
     if (!p) return;
     if (confirm(`确定删除「${p.title}」吗？其错题记录也会一并删除。`)) {
+      recordTombstone('deletedPapers', id);
+      db.wrongBook.filter((w) => w.paperId === id).forEach((w) => recordTombstone('deletedWrong', w.id));
       db.papers = db.papers.filter((x) => x.id !== id);
       db.wrongBook = db.wrongBook.filter((w) => w.paperId !== id);
       clearPaperProgress(id);
@@ -1726,6 +2224,7 @@ document.addEventListener('click', (e) => {
   }
   else if (action === 'clear-wrong') {
     if (confirm('确定清空全部错题吗？此操作不可恢复。')) {
+      db.wrongBook.forEach((w) => recordTombstone('deletedWrong', w.id));
       db.wrongBook = [];
       saveDB();
       renderWrongBook();
@@ -1945,7 +2444,33 @@ $$('.theme-btn').forEach((btn) => {
   btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
 });
 
+/* ---- 账号登录弹窗事件 ---- */
+$('#authClose').addEventListener('click', closeAuthModal);
+$('#authCancel').addEventListener('click', closeAuthModal);
+$('#authSubmit').addEventListener('click', submitAuth);
+$$('.auth-tab').forEach((b) => {
+  b.addEventListener('click', () => {
+    authMode = b.dataset.authTab;
+    updateAuthTabs();
+    showAuthMsg('');
+  });
+});
+$('#authOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'authOverlay') closeAuthModal();
+});
+
 /* ============================== 初始化 ============================== */
 initTheme();
 renderPapers();
 updateBadge();
+initCloud();
+renderAccountArea();
+
+
+
+
+
+
+
+
+
