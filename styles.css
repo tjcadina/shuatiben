@@ -354,3 +354,24 @@ input,textarea,select{font-family:inherit;color:inherit}
 
 /* 左右滑动切题：竖滑仍正常滚动，横滑触发切题手势 */
 .practice-shell{touch-action:pan-y}
+
+/* 显示设置：字号放大缩小 + 字体切换 */
+.display-row{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)}
+.dp-title{font-size:12px;font-weight:700;color:#e3e5ff;letter-spacing:.02em}
+.dp-line{display:flex;align-items:center;gap:6px}
+.dp-label{font-size:12px;color:#aab0d8;flex:0 0 auto;min-width:30px}
+.dp-btn{flex:1;padding:7px 4px;border-radius:9px;background:rgba(255,255,255,.08);color:#eef;font-size:13px;font-weight:700;border:1px solid rgba(255,255,255,.12)}
+.dp-btn:hover{background:rgba(255,255,255,.16)}
+.dp-btn.dp-val{font-size:12px;font-weight:600;color:#cfd3ff}
+.dp-select{flex:1;min-width:0;padding:6px 6px;border-radius:9px;background:rgba(255,255,255,.08);color:#eef;font-size:13px;border:1px solid rgba(255,255,255,.14);outline:none}
+.dp-select option{color:#1c1e2b;background:#fff}
+[data-theme="eye"] .display-row{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.18)}
+[data-theme="eye"] .dp-title,[data-theme="eye"] .dp-label{color:#e6f2e4}
+[data-theme="dark"] .display-row{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1)}
+[data-theme="dark"] .dp-title{color:#e2e8f0}
+[data-theme="dark"] .dp-label{color:#94a3b8}
+[data-theme="dark"] .dp-select option{color:#e2e8f0;background:#1e293b}
+@media (max-width:820px){
+  .display-row{flex:1 1 100%}
+  .dp-line{flex-wrap:wrap}
+}

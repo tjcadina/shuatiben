@@ -83,6 +83,54 @@ function initTheme() {
   applyTheme(saved);
 }
 
+/* ============================== 显示设置：字号 + 字体 ============================== */
+const FONT_SCALE_KEY = 'shuatiben_fontscale';
+const FONT_FAMILY_KEY = 'shuatiben_fontfamily';
+const FONT_FAMILIES = {
+  default: '',
+  hei: '"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",system-ui,-apple-system,sans-serif',
+  song: '"SimSun","Songti SC","Noto Serif CJK SC",serif',
+  kai: '"KaiTi","Kaiti SC","STKaiti",serif',
+  yuan: '"Yuanti SC","YouYuan","幼圆",sans-serif'
+};
+let fontScale = 1;
+let fontFamilyName = 'default';
+
+function clampFontScale(v) {
+  v = Number(v);
+  if (!isFinite(v) || v <= 0) v = 1;
+  return Math.min(1.4, Math.max(0.8, Math.round(v * 100) / 100));
+}
+
+function applyFontScale(v) {
+  fontScale = clampFontScale(v);
+  try { localStorage.setItem(FONT_SCALE_KEY, String(fontScale)); } catch (e) {}
+  if (document.documentElement) document.documentElement.style.zoom = String(fontScale);
+  const label = $('#fontResetBtn');
+  if (label) label.textContent = Math.round(fontScale * 100) + '%';
+}
+
+function applyFontFamily(name) {
+  fontFamilyName = Object.prototype.hasOwnProperty.call(FONT_FAMILIES, name) ? name : 'default';
+  try { localStorage.setItem(FONT_FAMILY_KEY, fontFamilyName); } catch (e) {}
+  if (document.body) document.body.style.fontFamily = FONT_FAMILIES[fontFamilyName] || '';
+  const sel = $('#fontFamilySelect');
+  if (sel) sel.value = fontFamilyName;
+}
+
+function initDisplaySettings() {
+  let scale = 1;
+  let family = 'default';
+  try { scale = Number(localStorage.getItem(FONT_SCALE_KEY)) || 1; } catch (e) {}
+  try { family = localStorage.getItem(FONT_FAMILY_KEY) || 'default'; } catch (e) {}
+  applyFontScale(scale);
+  applyFontFamily(family);
+}
+
+function setFontScaleBy(delta) {
+  applyFontScale(fontScale + delta);
+}
+
 function loadDB() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -2507,6 +2555,11 @@ $$('.theme-btn').forEach((btn) => {
   btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
 });
 
+$('#fontDecBtn').addEventListener('click', () => setFontScaleBy(-0.1));
+$('#fontIncBtn').addEventListener('click', () => setFontScaleBy(0.1));
+$('#fontResetBtn').addEventListener('click', () => applyFontScale(1));
+$('#fontFamilySelect').addEventListener('change', (e) => applyFontFamily(e.target.value));
+
 /* ---- 账号登录弹窗事件 ---- */
 $('#authClose').addEventListener('click', closeAuthModal);
 $('#authCancel').addEventListener('click', closeAuthModal);
@@ -2524,11 +2577,14 @@ $('#authOverlay').addEventListener('click', (e) => {
 
 /* ============================== 初始化 ============================== */
 initTheme();
+initDisplaySettings();
 renderPapers();
 updateBadge();
 initCloud();
 renderAccountArea();
 bindPracticeSwipe();
+
+
 
 
 

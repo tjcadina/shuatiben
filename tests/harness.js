@@ -47,7 +47,7 @@ function loadApp(initialStorage, extra) {
       removeItem(k) { delete storage[k]; }
     },
     document: {
-      documentElement: { setAttribute() {}, getAttribute() { return null; }, dataset: {} },
+      documentElement: { setAttribute() {}, getAttribute() { return null; }, dataset: {}, style: {} },
       addEventListener() {},
       querySelector(sel) {
         if (!cache.has(sel)) cache.set(sel, makeEl(sel));
@@ -80,4 +80,5 @@ function loadApp(initialStorage, extra) {
 }
 
 module.exports = { loadApp };
+
 

@@ -30,6 +30,25 @@
           <button class="theme-btn" data-theme="eye" title="护眼模式">🌿 护眼</button>
           <button class="theme-btn" data-theme="dark" title="夜间深色模式">🌙 夜间</button>
         </div>
+        <div class="display-row">
+          <div class="dp-title">Aa 显示设置</div>
+          <div class="dp-line">
+            <span class="dp-label">字号</span>
+            <button class="dp-btn" id="fontDecBtn" title="缩小字号">A−</button>
+            <button class="dp-btn dp-val" id="fontResetBtn" title="恢复 100%">100%</button>
+            <button class="dp-btn" id="fontIncBtn" title="放大字号">A＋</button>
+          </div>
+          <div class="dp-line">
+            <span class="dp-label">字体</span>
+            <select id="fontFamilySelect" class="dp-select" title="切换正文字体">
+              <option value="default">系统默认</option>
+              <option value="hei">黑体</option>
+              <option value="song">宋体</option>
+              <option value="kai">楷体</option>
+              <option value="yuan">圆体</option>
+            </select>
+          </div>
+        </div>
       </div>
     </aside>
 
@@ -188,6 +207,7 @@
   <script src="app.js"></script>
 </body>
 </html>
+
 
 
 
