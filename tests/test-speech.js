@@ -15,4 +15,8 @@ ctx.__run(`speakCurrentQuestion();`);
 assert.ok(ctx.window.speechSynthesis.spoken, 'should speak an utterance');
 assert.ok(ctx.window.speechSynthesis.spoken.text.includes('水果'), 'spoken text should contain question');
 assert.strictEqual(ctx.window.speechSynthesis.cancelled, true, 'previous speech should be cancelled');
+const spoken = ctx.window.speechSynthesis.spoken;
+if (typeof spoken.onend === 'function') spoken.onend();
+if (typeof spoken.onerror === 'function') spoken.onerror();
+
 console.log('PASS test-speech');

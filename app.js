@@ -952,19 +952,42 @@ function buildSpeechText(q) {
   return text;
 }
 
+function pickChineseVoice() {
+  const synth = window.speechSynthesis;
+  if (!synth || typeof synth.getVoices !== 'function') return null;
+  const voices = synth.getVoices() || [];
+  return voices.find((v) => /zh|Chinese|中文/i.test((v.lang || '') + ' ' + (v.name || ''))) || voices[0] || null;
+}
+
 function speakCurrentQuestion() {
   if (!session) return;
   const text = buildSpeechText(session.items[session.index].q);
   const synth = window.speechSynthesis;
   if (!synth || typeof window.SpeechSynthesisUtterance === 'undefined') {
-    toast('当前浏览器不支持语音播报');
+    toast('当前浏览器不支持语音播报，建议使用 Chrome/Safari 等浏览器');
     return;
   }
   synth.cancel();
   const utter = new window.SpeechSynthesisUtterance(text);
   utter.lang = 'zh-CN';
+  utter.volume = 1;
   utter.rate = 1;
+  utter.pitch = 1;
+  const voice = pickChineseVoice();
+  if (voice) utter.voice = voice;
   synth.speak(utter);
+
+  // 修复部分浏览器长时间播报自动暂停的问题
+  const keepAlive = setInterval(() => {
+    if (window.speechSynthesis && window.speechSynthesis.speaking) {
+      window.speechSynthesis.pause();
+      window.speechSynthesis.resume();
+    }
+  }, 12000);
+  utter.onend = utter.onerror = () => {
+    clearInterval(keepAlive);
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+  };
 }
 
 function goToQuestion(idx) {
@@ -1661,7 +1684,7 @@ document.addEventListener('click', (e) => {
   if (action === 'open-upload') openUploadModal();
   else if (action === 'load-sample') loadSample();
   else if (action === 'start-paper') startPaper(id, false);
-  else if (action === 'jump-question') goToQuestion(Number(id));
+  else if (action === 'jump-question') goToQuestion(Number(btn.dataset.index));
   else if (action === 'speak-question') speakCurrentQuestion();
   else if (action === 'start-paper-wrong') startPaper(id, true);
   else if (action === 'restart-paper') {

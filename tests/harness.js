@@ -27,6 +27,8 @@ function loadApp(initialStorage) {
     console,
     setTimeout,
     clearTimeout,
+    setInterval,
+    clearInterval,
     Date,
     JSON,
     Math,
