@@ -35,11 +35,17 @@ assert.strictEqual(ctx2.__run('session.index'), 1, 'should resume at first unans
 assert.strictEqual(ctx2.__run('session.answers[0].submitted'), true, 'restored q1 submitted');
 assert.strictEqual(ctx2.__run('session.answers[1] && session.answers[1].submitted ? true : false'), false, 'q2 not submitted yet');
 
-// Answer remaining questions then finish -> progress cleared after report
+// Answer remaining questions then finish -> 查看报告不结束本轮（B 版：进度保留）
 ctx2.__run(`session.answers[1] = { selected: 'C' }; submitCurrentAnswer();`);
 ctx2.__run(`nextQuestion(); session.answers[2] = { selected: 'C' }; submitCurrentAnswer();`);
 ctx2.__run(`nextQuestion();`);
 saved = JSON.parse(storage[KEY]);
-assert.ok(!saved.progress.p1, 'progress should be removed after finishing report');
+assert.ok(saved.progress.p1, '查看报告后进度仍保留（本轮未结束）');
+ctx2.__run(`if (session && session._autoTimer) { clearTimeout(session._autoTimer); session._autoTimer = null; }`);
+
+// 只有“重新开始”才结束本轮并清空进度
+ctx2.__run(`clearPaperProgress('p1');`);
+saved = JSON.parse(storage[KEY]);
+assert.ok(!saved.progress.p1, '重新开始后进度被清空');
 
 console.log('PASS test-progress');

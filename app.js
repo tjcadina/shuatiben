@@ -1395,15 +1395,19 @@ function renderPapers() {
 
 ﻿    for (const p of papers) {
       const wrongCount = db.wrongBook.filter((w) => w.paperId === p.id).length;
-      const hasProgress = !!(db.progress || {})[p.id];
+      const progress = (db.progress || {})[p.id];
+      const hasProgress = !!progress;
+      const roundDone = hasProgress && paperRoundDone(p, progress); // 本轮已全部答完，但尚未点“重新开始”结束
       const hasRecord = !!(p.lastRecord && p.lastRecord.answers);
       const showRedo = hasProgress || hasRecord;
+      const mainLabel = hasProgress ? (roundDone ? '查看报告' : '继续上次') : '开始刷题';
+      const redoLabel = hasProgress ? '重新开始' : '重新答题';
       const last = p.lastResult
         ? `<span>📈 上次 ${p.lastResult.accuracy}% · ${p.lastResult.correct}/${p.lastResult.total}</span>`
         : `<span>🕒 ${formatDate(p.createdAt)}</span>`;
-      const statusTag = hasProgress && !hasRecord
-        ? '<span class="tag" style="background:#fff3cd;color:#8a6d1a">⏸ 未完成</span>'
-        : (!hasProgress && hasRecord ? '<span class="tag" style="background:#e9f9ef;color:#16a34a">✅ 已完成</span>' : '');
+      const statusTag = roundDone
+        ? '<span class="tag" style="background:#e9f9ef;color:#16a34a">✅ 本轮已答完</span>'
+        : (hasProgress ? '<span class="tag" style="background:#fff3cd;color:#8a6d1a">⏸ 未完成</span>' : (hasRecord ? '<span class="tag" style="background:#e9f9ef;color:#16a34a">✅ 已完成</span>' : ''));
       html += `<div class="card">
         <div class="card-top">
           <span class="tag tag-subject" style="background:${SUBJECT_COLORS[subject] || SUBJECT_COLORS['其他']}22;color:${SUBJECT_COLORS[subject] || SUBJECT_COLORS['其他']}">${escapeHtml(subject)}</span>
@@ -1414,8 +1418,8 @@ function renderPapers() {
         <h4>${escapeHtml(p.title)}</h4>
         <div class="meta">${last}</div>
         <div class="card-actions">
-          <button class="btn btn-solid" data-action="start-paper" data-id="${p.id}">${hasProgress ? '继续上次' : '开始刷题'}</button>
-          ${showRedo ? `<button class="btn btn-outline btn-sm" data-action="restart-paper" data-id="${p.id}">${hasProgress ? '重新开始' : '重新答题'}</button>` : ''}
+          <button class="btn btn-solid" data-action="start-paper" data-id="${p.id}">${mainLabel}</button>
+          ${showRedo ? `<button class="btn btn-outline btn-sm" data-action="restart-paper" data-id="${p.id}">${redoLabel}</button>` : ''}
           ${wrongCount ? `<button class="btn btn-outline" data-action="start-paper-wrong" data-id="${p.id}">错题重练</button>` : ''}
           <button class="btn btn-outline btn-sm" data-action="edit-paper" data-id="${p.id}">编辑</button>
           <button class="btn btn-danger-soft btn-sm" data-action="delete-paper" data-id="${p.id}">删除</button>
@@ -1592,8 +1596,8 @@ function startPaper(paperId, wrongOnly) {
   };
 
   if (mode === 'paper') {
+    // 本轮已全部答完：查看报告不结束本轮、不清进度、不存档（B 版生命周期）
     if (progress && first < 0) {
-      clearPaperProgress(paper.id);
       renderReport();
       return;
     }
@@ -1943,40 +1947,44 @@ function bindPracticeSwipe() {
 
 /* ============================== 答题报告 ============================== */
 
-/* ---- 答题记录：整卷保存与回看（仅在“重新答题”时清空） ---- */
-function savePaperAttemptToRecord(paper) {
-  if (!paper || !session || session.mode !== 'paper' || !session.items) return;
-  const answers = [];
-  for (let i = 0; i < session.items.length; i++) {
-    const st = session.answers[i];
-    answers.push(st && st.submitted
-      ? { userAnswer: st.userAnswer || '', correct: !!st.correct, selected: st.selected || '', text: st.text || '' }
-      : null);
-  }
+/* ---- B 版生命周期：本轮结束 = 点「重新开始」（查看报告不结束本轮） ---- */
+function paperRoundDone(p, progress) {
+  if (!progress || !Array.isArray(progress.answers)) return false;
+  const total = progress.total || (p && p.questions ? p.questions.length : progress.answers.length);
+  if (!total || !progress.answers.length) return false;
+  return progress.answers.length >= total && progress.answers.every((a) => a && a.submitted);
+}
+
+function finalizePaperRecord(paperId) {
+  const p = db.papers.find((x) => x.id === paperId);
+  const prog = db.progress && db.progress[paperId];
+  if (!p || !paperRoundDone(p, prog)) return; // 未答完本轮不存档
+  const answers = prog.answers.map((a) => a
+    ? { userAnswer: a.userAnswer || '', correct: !!a.correct, selected: a.selected || '', text: a.text || '' }
+    : null);
   const answeredCount = answers.filter(Boolean).length;
   if (!answeredCount) return;
-  const total = session.items.length;
+  const total = prog.total || (p.questions ? p.questions.length : answers.length);
   const correct = answers.filter((a) => a && a.correct).length;
   const accuracy = total ? Math.round((correct / total) * 100) : 0;
-  paper.lastRecord = {
+  p.lastResult = { score: accuracy, accuracy, total, correct, date: Date.now() };
+  p.lastRecord = {
     completedAt: Date.now(),
     total,
     correct,
     wrong: total - correct,
     accuracy,
-    durationSec: Math.max(0, Math.round((Date.now() - (session.startTime || Date.now())) / 1000)),
     answers
   };
+  saveDB();
 }
 
-function clearPaperRecord(id) {
-  const p = db.papers.find((x) => x.id === id);
-  if (!p) return;
-  if (p.lastResult || p.lastRecord) {
-    p.lastResult = null;
-    if ('lastRecord' in p) delete p.lastRecord;
-    saveDB();
-  }
+function finalizeAndRestartPaper(paperId) {
+  // 本轮结束：把本轮完整作答存档为“上次记录/成绩”→ 清空本轮进度 → 从第 1 题开始新一轮
+  finalizePaperRecord(paperId);
+  clearPaperProgress(paperId);
+  renderPapers();
+  startPaper(paperId, false);
 }
 
 function feedbackText(acc) {
@@ -2001,15 +2009,8 @@ function renderReport() {
   const score = accuracy;
   const duration = (Date.now() - session.startTime) / 1000;
 
-  if (session.mode === 'paper' && session.paperId) {
-    const paper = db.papers.find((p) => p.id === session.paperId);
-    if (paper) {
-      paper.lastResult = { score, accuracy, total, correct, date: Date.now() };
-      savePaperAttemptToRecord(paper); // 保存整份答题记录，重新答题时才会清空
-      clearPaperProgress(session.paperId);
-    }
-  }
-
+  // B 版生命周期：查看报告不结束本轮——不写记录、不清进度、不改任何状态。
+  // 只有用户点「重新开始」时，才会在本轮结束时保存记录并清空进度（见 finalizeAndRestartPaper）。
   setTopbar('答题报告', session.title);
   showView('report');
   const root = $('#view-report');
@@ -2345,11 +2346,8 @@ document.addEventListener('click', (e) => {
   else if (action === 'speak-question') speakCurrentQuestion();
   else if (action === 'start-paper-wrong') startPaper(id, true);
   else if (action === 'restart-paper') {
-    if (confirm('重新答题将清除该试卷上次的答题记录与进度，确定吗？')) {
-      clearPaperRecord(id);
-      clearPaperProgress(id);
-      renderPapers();
-      startPaper(id, false);
+    if (confirm('「重新开始」将结束本轮：保存本轮作答为上次记录，并从第 1 题开始新一轮。确定吗？')) {
+      finalizeAndRestartPaper(id);
     }
   }
   else if (action === 'edit-paper') openEditPaper(id);
@@ -2627,6 +2625,11 @@ updateBadge();
 initCloud();
 renderAccountArea();
 bindPracticeSwipe();
+
+
+
+
+
 
 
 
