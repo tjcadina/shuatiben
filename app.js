@@ -131,7 +131,7 @@ const cloud = {
 };
 
 function cloudConfig() {
-  if (typeof window !== 'undefined' && window.CLOUDBASE_CONFIG && window.CLOUDBASE_CONFIG.env) {
+  if (typeof window !== 'undefined' && window.CLOUDBASE_CONFIG && window.CLOUDBASE_CONFIG.env && window.CLOUDBASE_CONFIG.enabled !== false) {
     return window.CLOUDBASE_CONFIG;
   }
   return null;
@@ -528,7 +528,13 @@ function renderAccountArea() {
   if (!card) return;
   const cfg = cloudConfig();
   const sdk = cloudSDK();
-  if (!cfg || !sdk) return; // 未配置云服务：不显示账号区
+  if (!cfg || !sdk) {
+    // 云端未启用（enabled:false 或未配置）：隐藏登录入口，保持纯本地使用
+    card.innerHTML = '';
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
   let html;
   if (cloud.state === 'signed-in' && cloud.user) {
     const email = cloud.user.email || readCloudEmail() || '已登录';
@@ -2465,6 +2471,7 @@ renderPapers();
 updateBadge();
 initCloud();
 renderAccountArea();
+
 
 
 

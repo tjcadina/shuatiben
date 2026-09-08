@@ -8,5 +8,9 @@ window.CLOUDBASE_CONFIG = {
   env: 'cadina-d1gwgvf2i28fff970',
   region: 'ap-shanghai',
   clientId: '',
-  debounceMs: 1200
+  debounceMs: 1200,
+  // enabled: false 时隐藏登录/同步入口（纯本地使用）；
+  // 以后开通云端（如升级为个人版并添加安全域名）后，把下面改成 true 即可，无需改其它代码。
+  enabled: false
 };
+

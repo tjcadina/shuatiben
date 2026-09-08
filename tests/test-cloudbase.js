@@ -247,6 +247,25 @@ async function scenario8_logoutKeepsLocal() {
   console.log('PASS cloud: 退出登录后本地数据保留并回到登录态');
 }
 
+
+async function scenario10_hiddenWhenDisabled() {
+  const sdk = makeCloudbase({ users: { 'zoe@test.com': 'pass1234' } });
+  // enabled:false -> 隐藏登录入口、不初始化云端
+  const ctx = loadApp({}, { cloudbase: sdk, config: Object.assign({}, CONFIG, { enabled: false }) });
+  await tick();
+  assert.strictEqual(ctx.__run("cloud.state === 'off'"), true, 'cloud not initialized when disabled');
+  assert.strictEqual(ctx.__run("document.querySelector('#accountCard').innerHTML === ''"), true, 'account card empty when disabled');
+  assert.strictEqual(ctx.__run("document.querySelector('#accountCard').style.display"), 'none', 'account card hidden when disabled');
+  // 配置去掉 enabled:false（=未显式关闭）时仍正常显示登录入口
+  const ctx2 = loadApp({}, { cloudbase: sdk, config: CONFIG });
+  await tick();
+  assert.strictEqual(ctx2.__run("cloud.state !== 'off'"), true, 'cloud initialized when enabled');
+  const html = ctx2.__run("document.querySelector('#accountCard').innerHTML");
+  assert.ok(html.includes('登录 / 注册'), 'account card shows login button when enabled');
+  cleanupTimers(ctx2);
+  console.log('PASS cloud: enabled:false 时隐藏登录入口');
+}
+
 async function scenario9_submitAuthRegisterThenLogin() {
   const sdk = makeCloudbase({});
   const ctx = loadApp({}, { cloudbase: sdk, config: CONFIG });
@@ -279,6 +298,7 @@ async function scenario9_submitAuthRegisterThenLogin() {
   await scenario7_notFoundTolerated();
   await scenario8_logoutKeepsLocal();
   await scenario9_submitAuthRegisterThenLogin();
+  await scenario10_hiddenWhenDisabled();
   console.log('PASS test-cloudbase');
 })().catch((e) => {
   console.error('FAIL test-cloudbase');
