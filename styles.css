@@ -351,3 +351,6 @@ input,textarea,select{font-family:inherit;color:inherit}
 [data-theme="dark"] .auth-tab.active{background:var(--primary-soft);color:#c7d2fe;box-shadow:none}
 [data-theme="eye"] .auth-tab.active{background:var(--surface)}
 
+
+/* 左右滑动切题：竖滑仍正常滚动，横滑触发切题手势 */
+.practice-shell{touch-action:pan-y}

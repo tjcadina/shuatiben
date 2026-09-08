@@ -107,6 +107,7 @@ function saveDB() {
 
 let db = loadDB();
 let session = null;
+let currentView = 'papers';
 let pendingImport = null;
 let pendingTitle = '未命名试卷';
 
@@ -1303,6 +1304,7 @@ function setTopbar(title, subtitle) {
 }
 
 function showView(view) {
+  currentView = view;
   $$('.view').forEach((v) => v.classList.remove('active'));
   const target = $('#view-' + view);
   if (target) target.classList.add('active');
@@ -1829,6 +1831,61 @@ function nextQuestion() {
   } else {
     renderReport();
   }
+}
+
+/* ============================== 左右滑动切换题目 ============================== */
+// 说明：向左滑（手指向左移动）→ 上一道题；向右滑 → 下一道题（在最后一题且已作答时进入答题报告）。
+// 如需改成主流相册式方向（左滑=下一题、右滑=上一题），把 swipeGo 中 dir 的映射对调即可。
+function swipeNavigate(dir) {
+  if (!session || !session.items) return;
+  const total = session.items.length;
+  if (dir === 'prev') {
+    if (session.index > 0) {
+      goToQuestion(session.index - 1);
+    } else {
+      toast('已经是第一题了');
+    }
+  } else {
+    if (session.index + 1 < total) {
+      goToQuestion(session.index + 1);
+    } else {
+      const st = session.answers[session.index];
+      if (st && st.submitted) nextQuestion();
+      else toast('已是最后一题，请先完成本题');
+    }
+  }
+}
+
+function handlePracticeSwipe(dx, dy) {
+  if (!session || currentView !== 'practice') return false;
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
+  if (absX < 60 || absX < absY * 1.2) return false; // 太短或偏向竖滑：不处理
+  swipeNavigate(dx < 0 ? 'prev' : 'next');
+  return true;
+}
+
+function bindPracticeSwipe() {
+  const el = $('#view-practice');
+  if (!el) return;
+  let startX = null;
+  let startY = null;
+  el.addEventListener('touchstart', (e) => {
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    startX = t.clientX;
+    startY = t.clientY;
+  }, { passive: true });
+  el.addEventListener('touchend', (e) => {
+    if (startX == null) return;
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    startX = null;
+    startY = null;
+    handlePracticeSwipe(dx, dy);
+  }, { passive: true });
 }
 
 /* ============================== 答题报告 ============================== */
@@ -2471,6 +2528,10 @@ renderPapers();
 updateBadge();
 initCloud();
 renderAccountArea();
+bindPracticeSwipe();
+
+
+
 
 
 
