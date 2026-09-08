@@ -19,4 +19,19 @@ const spoken = ctx.window.speechSynthesis.spoken;
 if (typeof spoken.onend === 'function') spoken.onend();
 if (typeof spoken.onerror === 'function') spoken.onerror();
 
+
+// 语音列表已就绪时应自动选中中文语音（utter.voice 被设置）
+ctx.window.speechSynthesis = {
+  speaking: false,
+  cancel() { this.cancelled = true; },
+  speak(u) { this.spoken = u; },
+  getVoices() { return [{ lang: 'zh-CN', name: 'Ting-Ting' }, { lang: 'en-US', name: 'Samantha' }]; }
+};
+ctx.__run('speakCurrentQuestion();');
+const withVoice = ctx.window.speechSynthesis.spoken;
+assert.ok(withVoice && withVoice.voice, '应自动选择可用语音');
+assert.ok(/zh/i.test(withVoice.voice.lang), '优先选择中文语音');
+if (withVoice && typeof withVoice.onend === 'function') withVoice.onend();
+if (withVoice && typeof withVoice.onerror === 'function') withVoice.onerror();
+
 console.log('PASS test-speech');

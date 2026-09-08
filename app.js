@@ -1651,10 +1651,14 @@ function buildSpeechText(q) {
   return text;
 }
 
-function pickChineseVoice() {
-  const synth = window.speechSynthesis;
-  if (!synth || typeof synth.getVoices !== 'function') return null;
-  const voices = synth.getVoices() || [];
+function listTTSVoices(synth) {
+  try {
+    if (synth && typeof synth.getVoices === 'function') return synth.getVoices() || [];
+  } catch (e) {}
+  return [];
+}
+
+function pickChineseVoiceFrom(voices) {
   return voices.find((v) => /zh|Chinese|中文/i.test((v.lang || '') + ' ' + (v.name || ''))) || voices[0] || null;
 }
 
@@ -1662,31 +1666,63 @@ function speakCurrentQuestion() {
   if (!session) return;
   const text = buildSpeechText(session.items[session.index].q);
   const synth = window.speechSynthesis;
-  if (!synth || typeof window.SpeechSynthesisUtterance === 'undefined') {
-    toast('当前浏览器不支持语音播报，建议使用 Chrome/Safari 等浏览器');
+  const Utter = window.SpeechSynthesisUtterance;
+  if (!synth || typeof Utter === 'undefined') {
+    toast('当前浏览器不支持语音播报：请用手机系统浏览器（如华为浏览器/Chrome/Safari）打开，不要在微信内打开');
     return;
   }
-  synth.cancel();
-  const utter = new window.SpeechSynthesisUtterance(text);
-  utter.lang = 'zh-CN';
-  utter.volume = 1;
-  utter.rate = 1;
-  utter.pitch = 1;
-  const voice = pickChineseVoice();
-  if (voice) utter.voice = voice;
-  synth.speak(utter);
+  try { synth.cancel(); } catch (e) {}
 
-  // 修复部分浏览器长时间播报自动暂停的问题
-  const keepAlive = setInterval(() => {
-    if (window.speechSynthesis && window.speechSynthesis.speaking) {
-      window.speechSynthesis.pause();
-      window.speechSynthesis.resume();
+  const doSpeak = (voice) => {
+    try {
+      const utter = new Utter(text);
+      utter.lang = 'zh-CN';
+      utter.volume = 1;
+      utter.rate = 1;
+      utter.pitch = 1;
+      if (voice) utter.voice = voice;
+      let started = false;
+      let keep = null;
+      const failTimer = setTimeout(() => {
+        if (!started && synth.speaking === false) {
+          toast('没有听到声音：请确认手机已开启“文字转语音/朗读”，并改用系统浏览器打开本页');
+        }
+      }, 1400);
+      utter.onstart = () => { started = true; clearTimeout(failTimer); };
+      utter.onend = utter.onerror = () => {
+        clearTimeout(failTimer);
+        if (keep) clearInterval(keep);
+        try { synth.cancel(); } catch (e) {}
+      };
+      synth.speak(utter);
+      // 修复部分浏览器长时间播报自动暂停
+      keep = setInterval(() => {
+        try {
+          if (synth.speaking) { synth.pause(); synth.resume(); }
+        } catch (e) {}
+      }, 12000);
+    } catch (e) {
+      console.error('[tts]', e);
+      toast('语音播放失败：' + (e && e.message ? e.message : e));
     }
-  }, 12000);
-  utter.onend = utter.onerror = () => {
-    clearInterval(keepAlive);
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
   };
+
+  const voices = listTTSVoices(synth);
+  const zh = pickChineseVoiceFrom(voices);
+  if (!zh && voices.length === 0 && typeof synth.addEventListener === 'function') {
+    // 部分 Android/WebView 的语音列表是异步加载的：等 voiceschanged 再播
+    let fired = false;
+    const onVoices = () => {
+      if (fired) return;
+      fired = true;
+      try { synth.removeEventListener('voiceschanged', onVoices); } catch (e) {}
+      doSpeak(pickChineseVoiceFrom(listTTSVoices(synth)));
+    };
+    try { synth.addEventListener('voiceschanged', onVoices); } catch (e) {}
+    setTimeout(() => { if (!fired) { fired = true; doSpeak(null); } }, 1000);
+  } else {
+    doSpeak(zh);
+  }
 }
 
 function goToQuestion(idx) {
