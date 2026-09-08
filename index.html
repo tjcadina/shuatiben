@@ -175,13 +175,20 @@
 
   <div id="toast" class="toast"></div>
 
-  <script src="vendor/mammoth.browser.min.js"></script>
-  <script src="vendor/pdf.min.js"></script>
-  <script src="vendor/cloudbase.full.js"></script>
   <script src="cloudbase-config.js"></script>
+  <script>
+    // 云端登录 SDK：仅在 cloudbase-config.js 里 enabled:true 时才加载，避免手机端白下载 300KB+
+    if (window.CLOUDBASE_CONFIG && window.CLOUDBASE_CONFIG.enabled) {
+      document.write('<script src="vendor/cloudbase.full.js"><\/script>');
+    }
+  </script>
+  <!-- Word/PDF 解析库体积较大，改为 defer 后台加载，不影响首屏响应 -->
+  <script defer src="vendor/mammoth.browser.min.js"></script>
+  <script defer src="vendor/pdf.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
+
 
 
 
