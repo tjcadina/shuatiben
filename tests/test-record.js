@@ -61,4 +61,24 @@ const newProg = ctx.__run('db.progress.p1');
 assert.ok(newProg && !newProg.answers.some((a) => a && a.submitted), '新一轮进度已重置（无已提交答案）');
 assert.strictEqual(ctx.__run('currentView'), 'practice', '重新开始后进入新一轮作答');
 ctx.__run(clearAuto);
+
+// 关键规则：即使“打完试卷 + 查看报告”，也绝不重置上次的答题记录；只有按“重新答题/重新开始”才会改动
+{
+  const legacyRecord = { completedAt: 1, total: 3, correct: 3, wrong: 0, accuracy: 100, answers: [{ userAnswer: 'B', correct: true }, null, null] };
+  const storage2 = {};
+  storage2[KEY] = JSON.stringify({
+    papers: [{ id: 'p9', title: '既有记录卷', subject: '数学', createdAt: 1, lastResult: { accuracy: 100, total: 3, correct: 3 }, lastRecord: legacyRecord, questions: [
+      { id: 'r1', question: 'r1?', options: ['A', 'B', 'C', 'D'], answer: 'B', analysis: '', type: 'single', typeLabel: '单选题', subject: '数学' }
+    ] }],
+    wrongBook: [], progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites: []
+  });
+  const c3 = loadApp(storage2);
+  c3.__run("startPaper('p9', false);");
+  c3.__run("session.answers[0] = { selected: 'B' }; submitCurrentAnswer(); if (session._autoTimer) { clearTimeout(session._autoTimer); session._autoTimer = null; }");
+  c3.__run('nextQuestion();'); // 打完 -> 查看报告
+  const still = c3.__run('db.papers[0].lastRecord');
+  assert.ok(still && still.completedAt === 1, '完成+查看报告后，既有上次记录保持不变');
+  assert.strictEqual(c3.__run('db.papers[0].lastResult.accuracy'), 100, '完成+查看报告后，上次成绩保持不变');
+}
+
 console.log('PASS test-record');
