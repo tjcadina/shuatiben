@@ -1199,6 +1199,13 @@ function renderPractice() {
 function bindPracticeEvents() {
   const root = $('#view-practice');
 
+  $$('.qnav-chip', root).forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.index);
+      if (!Number.isNaN(idx)) goToQuestion(idx);
+    });
+  });
+
 ﻿  $$('.option', root).forEach((btn) => {
     btn.addEventListener('click', () => {
       const item = session.items[session.index];

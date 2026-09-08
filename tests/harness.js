@@ -3,6 +3,7 @@ const path = require('path');
 const vm = require('vm');
 
 function makeEl(sel) {
+  const handlers = {};
   return {
     sel,
     innerHTML: '',
@@ -11,9 +12,10 @@ function makeEl(sel) {
     style: {},
     files: [],
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
-    addEventListener() {},
+    addEventListener(type, fn) { (handlers[type] = handlers[type] || []).push(fn); },
+    fire(type) { (handlers[type] || []).forEach((fn) => fn({ target: this })); },
     setAttribute() {},
-    click() {},
+    click() { this.fire('click'); },
     remove() {},
     select() {},
     dataset: {}
@@ -51,7 +53,10 @@ function loadApp(initialStorage) {
         if (!cache.has(sel)) cache.set(sel, makeEl(sel));
         return cache.get(sel);
       },
-      querySelectorAll() { return []; },
+      querySelectorAll(sel) {
+        if (!cache.has(sel)) cache.set(sel, [makeEl(sel)]);
+        return cache.get(sel);
+      },
       createElement() { return makeEl(''); },
       body: makeEl('body')
     },

@@ -15,6 +15,13 @@ assert.ok(html.includes('qnav-chip'), 'should render question chips');
 assert.ok(html.includes('data-action="jump-question"'), 'chips should be clickable');
 assert.ok(html.includes('qnav-chip todo'), 'initial chips should be unanswered');
 
+// Simulate clicking a chip: direct event handler should jump to question 3 (index 2)
+const chip = ctx.document.querySelectorAll('.qnav-chip')[0];
+chip.dataset.index = '2';
+chip.fire('click');
+assert.strictEqual(ctx.__run('session.index'), 2, 'clicking chip should jump to index 2');
+ctx.__run('goToQuestion(0);');
+
 ctx.__run(`session.answers[0] = { selected: 'A' }; submitCurrentAnswer();`);
 html = ctx.document.querySelector('#view-practice').innerHTML;
 assert.ok(html.includes('qnav-chip bad'), 'wrong answer should be marked bad');
