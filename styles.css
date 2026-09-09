@@ -411,3 +411,32 @@ input,textarea,select{font-family:inherit;color:inherit}
 .dp-label{min-width:26px;font-size:11.5px}
 .dp-select{padding:5px 4px;font-size:12px;border-radius:8px}
 
+
+/* 计分条 */
+.scoring-bar{background:var(--primary-soft);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-size:12.5px;color:var(--primary);margin-bottom:12px;line-height:1.5}
+
+/* 同科目分组：可展开/收起下拉 */
+.subject-group details .subject-head{list-style:none;cursor:pointer;user-select:none}
+.subject-group details .subject-head::-webkit-details-marker{display:none}
+.subject-group details[open] .subject-head .caret{transform:rotate(0deg)}
+.subject-group details .subject-head .caret{display:inline-block;transition:transform .15s ease;font-size:11px;margin-left:2px;color:var(--muted)}
+
+/* 悬浮“下一题”按钮 */
+.float-next{
+  position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom, 0px));z-index:40;
+  display:inline-flex;align-items:center;gap:6px;padding:12px 18px;border-radius:999px;
+  background:linear-gradient(135deg,#6d6df0,#5454d6);color:#fff;font-weight:700;font-size:14px;
+  box-shadow:0 10px 24px rgba(91,91,214,.45);border:none;cursor:pointer;
+}
+.float-next:hover{transform:translateY(-1px)}
+.float-next.hidden{display:none}
+
+/* 显示设置行内小开关 */
+.dp-check{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#dfe1ff;flex:1;min-width:0}
+.dp-check input{width:15px;height:15px;accent-color:#5b5bd6}
+[data-theme="dark"] .dp-check{color:#cbd5e1}
+
+/* 手机端：顶部栏滚动收起（#7） */
+@media (max-width:820px){
+  body.hide-mobile-header .sidebar{display:none}
+}

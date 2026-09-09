@@ -99,6 +99,7 @@ const FONT_FAMILIES = {
   yuan: '"Yuanti SC","YouYuan","幼圆",sans-serif'
 };
 const DISPLAY_OPEN_KEY = 'shuatiben_displayopen';
+const FLOAT_NEXT_KEY = 'shuatiben_floatnext';
 function isDisplayOpen() {
   try {
     const v = localStorage.getItem(DISPLAY_OPEN_KEY);
@@ -114,6 +115,23 @@ function setDisplayOpen(open) {
 }
 function toggleDisplayPanel() {
   setDisplayOpen(!isDisplayOpen());
+}
+function isFloatNext() {
+  try { return localStorage.getItem(FLOAT_NEXT_KEY) !== '0'; } catch (e) { return true; }
+}
+function setFloatNext(on) {
+  try { localStorage.setItem(FLOAT_NEXT_KEY, on ? '1' : '0'); } catch (e) {}
+  const box = $('#floatNextToggle');
+  if (box) box.checked = !!on;
+  updateFloatNext();
+}
+function updateFloatNext() {
+  const btn = $('#floatNext');
+  if (!btn) return;
+  const show = isFloatNext() && session && currentView === 'practice' &&
+    session.answers[session.index] && session.answers[session.index].submitted &&
+    session.index + 1 < session.items.length;
+  btn.classList.toggle('hidden', !show);
 }
 let fontScale = 1;
 let fontFamilyName = 'default';
@@ -148,6 +166,9 @@ function initDisplaySettings() {
   applyFontScale(scale);
   applyFontFamily(family);
   setDisplayOpen(isDisplayOpen());
+  const box = $('#floatNextToggle');
+  if (box) box.checked = isFloatNext();
+  updateFloatNext();
 }
 
 function setFontScaleBy(delta) {
@@ -836,6 +857,22 @@ function typeName(q) {
   return map[q.type] || q.type;
 }
 
+function buildScoring(items) {
+  const list = Array.isArray(items) ? items : [];
+  const total = list.length || 1;
+  const base = Math.floor(100 / total);
+  const rem = 100 - base * total;
+  const perIndex = list.map((_, i) => base + (i < rem ? 1 : 0));
+  const perType = {};
+  const perTypeScore = {};
+  list.forEach((it, i) => {
+    const k = it && it.q ? typeName(it.q) : '题目';
+    perType[k] = (perType[k] || 0) + 1;
+    perTypeScore[k] = (perTypeScore[k] || 0) + perIndex[i];
+  });
+  return { total, perIndex, perType, perTypeScore };
+}
+
 function answerDisplay(q) {
   if (q.type === 'multiple') {
     return q.answer || '（未提供）';
@@ -1033,7 +1070,7 @@ function parseTextPapers(text, fallbackTitle) {
     });
     if (!questions.length) return null;
     const contentText = questions.map((q) => q.question).join('\n');
-    const titleText = paper.title || paper.fallback || '';
+    const titleText = paper.title || paper.fallback || fallbackTitle || ''; // 科目优先依据标题/文件名
     const bookSubject = extractExamSubject(titleText);
     const subject = paper.subject || bookSubject || detectSubjectName(titleText) || classifySubject(contentText);
     return {
@@ -1249,9 +1286,10 @@ function parseJSONPapers(text, fallbackTitle) {
       return fq;
     }).filter((q) => q.question);
     const allText = questions.map((q) => q.question + '\n' + q.analysis).join('\n');
+    const titleSrc = title || fallbackTitle || ''; // 科目优先依据标题/文件名
     return {
       title,
-      subject: subject || classifySubject(allText || text),
+      subject: subject || extractExamSubject(titleSrc) || detectSubjectName(titleSrc) || classifySubject(allText || text || titleSrc),
       questions,
       warnings
     };
@@ -1388,6 +1426,7 @@ function showView(view) {
   if (target) target.classList.add('active');
   $$('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
   updateBadge();
+  updateFloatNext();
 }
 
 /* ============================== 试卷库 ============================== */
@@ -1411,17 +1450,18 @@ function renderPapers() {
     const key = p.subject || '其他';
     (groups[key] = groups[key] || []).push(p);
   }
-  const orderedKeys = [...SUBJECTS.filter((s) => groups[s]), ...Object.keys(groups).filter((s) => !SUBJECTS.includes(s))];
+  const groupLatest = (list) => list.reduce((m, p) => Math.max(m, p.lastOpenedAt || 0), 0);
+  const practiced = Object.keys(groups).filter((s) => groupLatest(groups[s]) > 0).sort((a, b) => groupLatest(groups[b]) - groupLatest(groups[a]));
+  const others = Object.keys(groups).filter((s) => !practiced.includes(s));
+  const orderedKeys = [...practiced, ...SUBJECTS.filter((s) => others.includes(s)), ...others.filter((s) => !SUBJECTS.includes(s))];
   let html = '';
   for (const subject of orderedKeys) {
-    const papers = groups[subject];
-    html += `<div class="subject-group">
-      <div class="subject-head">
+    const papers = groups[subject].slice().sort((a, b) => ((b.lastOpenedAt || 0) - (a.lastOpenedAt || 0)) || ((b.createdAt || 0) - (a.createdAt || 0)));
+    html += `<div class="subject-group"><details open><summary class="subject-head">
         <span class="subject-dot" style="background:${SUBJECT_COLORS[subject] || SUBJECT_COLORS['其他']}"></span>
         <h3>${escapeHtml(subject)}</h3>
-        <span class="count">${papers.length} 套试卷</span>
-      </div>
-      <div class="grid">`;
+        <span class="count">${papers.length} 套试卷 <span class="caret">▾</span></span>
+      </summary><div class="grid">`;
 
 ﻿    for (const p of papers) {
       const wrongCount = db.wrongBook.filter((w) => w.paperId === p.id).length;
@@ -1446,7 +1486,7 @@ function renderPapers() {
           ${wrongCount ? `<span class="tag" style="background:#fdeef2;color:#e11d48">错题 ${wrongCount}</span>` : ''}
         </div>
         <h4>${escapeHtml(p.title)}</h4>
-        <div class="meta">${last}</div>
+        <div class="meta">${last}<span>💯 满分100 · 每题约${Math.round(100 / Math.max(1, p.questions.length))} 分</span></div>
         <div class="card-actions">
           <button class="btn btn-solid" data-action="start-paper" data-id="${p.id}">${mainLabel}</button>
           ${showRedo ? `<button class="btn btn-outline btn-sm" data-action="restart-paper" data-id="${p.id}">${redoLabel}</button>` : ''}
@@ -1456,7 +1496,7 @@ function renderPapers() {
         </div>
       </div>`;
     }
-    html += `</div></div>`;
+    html += `</div></details></div>`;
   }
   root.innerHTML = html;
 }
@@ -1491,12 +1531,11 @@ function renderWrongBook() {
 
   for (const subject of orderedKeys) {
     const list = groups[subject];
-    html += `<div class="subject-group">
-      <div class="subject-head">
+    html += `<div class="subject-group"><details open><summary class="subject-head">
         <span class="subject-dot" style="background:${SUBJECT_COLORS[subject] || SUBJECT_COLORS['其他']}"></span>
         <h3>${escapeHtml(subject)}</h3>
-        <span class="count">${list.length} 道</span>
-      </div>`;
+        <span class="count">${list.length} 道 <span class="caret">▾</span></span>
+      </summary>`;
 
     for (const w of list) {
       html += `<div class="wrong-entry">
@@ -1519,7 +1558,7 @@ function renderWrongBook() {
         </div>
       </div>`;
     }
-    html += `</div>`;
+    html += `</details></div>`;
   }
   root.innerHTML = html;
 }
@@ -1606,12 +1645,11 @@ function renderFavorites() {
     </div>`;
   for (const subject of orderedKeys) {
     const list = groups[subject];
-    html += `<div class="subject-group">
-      <div class="subject-head">
+    html += `<div class="subject-group"><details open><summary class="subject-head">
         <span class="subject-dot" style="background:${SUBJECT_COLORS[subject] || SUBJECT_COLORS['其他']}"></span>
         <h3>${escapeHtml(subject)}</h3>
-        <span class="count">${list.length} 道</span>
-      </div>`;
+        <span class="count">${list.length} 道 <span class="caret">▾</span></span>
+      </summary>`;
     for (const f of list) {
       html += `<div class="wrong-entry">
         <div class="q-body">
@@ -1630,7 +1668,7 @@ function renderFavorites() {
         </div>
       </div>`;
     }
-    html += `</div>`;
+    html += `</details></div>`;
   }
   root.innerHTML = html;
 }
@@ -1651,6 +1689,12 @@ function buildSpeechText(q) {
   return text;
 }
 
+function stopSpeech() {
+  try {
+    if (window.speechSynthesis && typeof window.speechSynthesis.cancel === 'function') window.speechSynthesis.cancel();
+  } catch (e) {}
+}
+
 function listTTSVoices(synth) {
   try {
     if (synth && typeof synth.getVoices === 'function') return synth.getVoices() || [];
@@ -1658,8 +1702,14 @@ function listTTSVoices(synth) {
   return [];
 }
 
+const CUTE_VOICES = ['XiaoxiaoNeural','XiaoyiNeural','Xiaoxiao','Xiaoyi','YunxiNeural','Yunxi','Ting-Ting','Meijia','Yaoyao','Hanhan','Huihui','婷婷','晓晓','云希'];
 function pickChineseVoiceFrom(voices) {
-  return voices.find((v) => /zh|Chinese|中文/i.test((v.lang || '') + ' ' + (v.name || ''))) || voices[0] || null;
+  const zh = voices.filter((v) => /zh|Chinese|中文/i.test((v.lang || '') + ' ' + (v.name || '')));
+  for (const n of CUTE_VOICES) {
+    const hit = zh.find((v) => (v.name || '').indexOf(n) >= 0);
+    if (hit) return hit;
+  }
+  return zh[0] || voices[0] || null;
 }
 
 function speakCurrentQuestion() {
@@ -1678,8 +1728,8 @@ function speakCurrentQuestion() {
       const utter = new Utter(text);
       utter.lang = 'zh-CN';
       utter.volume = 1;
-      utter.rate = 1;
-      utter.pitch = 1;
+      utter.rate = 1.12; // 中快速
+      utter.pitch = 1.08; // 更可爱亲和
       if (voice) utter.voice = voice;
       let started = false;
       let keep = null;
@@ -1728,6 +1778,7 @@ function speakCurrentQuestion() {
 function goToQuestion(idx) {
   if (!session) return;
   if (idx < 0 || idx >= session.items.length) return;
+  stopSpeech();
   clearTimeout(session._autoTimer);
   session.index = idx;
   if (session.mode === 'paper') savePaperProgress();
@@ -1736,8 +1787,11 @@ function goToQuestion(idx) {
 
 
 function startPaper(paperId, wrongOnly) {
+  stopSpeech();
   const paper = db.papers.find((p) => p.id === paperId);
   if (!paper) return;
+  paper.lastOpenedAt = Date.now(); // 用于“最近刷题置顶”
+  saveDB();
   let items = [];
   let mode = 'paper';
   let title = paper.title;
@@ -1824,6 +1878,11 @@ function renderPractice() {
   const answeredCount = session.answers.filter((a) => a && a.submitted).length;
   const pct = Math.round((answeredCount / total) * 100);
   const favActive = isQuestionFavorited(session.paperId || (item.srcPaperId || ''), q.id);
+  if (!session.scoring) session.scoring = buildScoring(session.items);
+  const pts = session.scoring.perIndex[index] || 1;
+  const curType = typeName(q);
+  const typeCount = session.scoring.perType[curType] || 1;
+  const scoringLine = `<div class="scoring-bar">💯 满分 100 分 · 本题 ${pts} 分 · ${curType} 共 ${typeCount} 道 · 全卷 ${session.items.length} 题</div>`;
 
   setTopbar(session.title, `${session.mode === 'wrong' ? '错题重练' : '试卷刷题'} · 可点 ☆ 收藏本题`);
   showView('practice');
@@ -1920,6 +1979,7 @@ function renderPractice() {
         <div class="progress-meta">第 ${index + 1} / ${total} 题</div>
       </div>
       ${progressNav}
+      ${scoringLine}
       <div class="question-card">
         <div class="question-head">
           <span class="question-no">第 ${index + 1} 题</span>
@@ -2069,6 +2129,7 @@ function submitCurrentAnswer() {
 
 function nextQuestion() {
   if (!session) return;
+  stopSpeech();
   if (session.index + 1 < session.items.length) {
     session.index += 1;
     if (session.mode === 'paper') savePaperProgress();
@@ -2081,6 +2142,15 @@ function nextQuestion() {
 /* ============================== 左右滑动切换题目 ============================== */
 // 说明：向左滑（手指向左移动）→ 下一道题；向右滑 → 上一道题。
 // 在最后一题且已作答时，再向左滑会进入答题报告。
+function exitPracticeBySwipe() {
+  if (!session) return;
+  if (session.mode === 'paper') savePaperProgress();
+  session = null;
+  showView('papers');
+  renderPapers();
+  toast('已退出刷题，进度已保存');
+}
+
 function swipeNavigate(dir) {
   if (!session || !session.items) return;
   const total = session.items.length;
@@ -2088,7 +2158,7 @@ function swipeNavigate(dir) {
     if (session.index > 0) {
       goToQuestion(session.index - 1);
     } else {
-      toast('已经是第一题了');
+      exitPracticeBySwipe(); // 第一题右滑=退出刷题
     }
   } else {
     if (session.index + 1 < total) {
@@ -2108,6 +2178,19 @@ function handlePracticeSwipe(dx, dy) {
   if (absX < 60 || absX < absY * 1.2) return false; // 太短或偏向竖滑：不处理
   swipeNavigate(dx < 0 ? 'next' : 'prev');
   return true;
+}
+
+function bindHeaderFold() {
+  try {
+    if (!window.matchMedia || !window.matchMedia('(max-width:820px)').matches) return;
+    if (typeof window.addEventListener !== 'function') return;
+    const onScroll = () => {
+      const y = window.pageYOffset || (document.documentElement ? document.documentElement.scrollTop : 0) || 0;
+      document.body.classList.toggle('hide-mobile-header', y > 140);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  } catch (e) {}
 }
 
 function bindPracticeSwipe() {
@@ -2428,7 +2511,7 @@ function closeBackupModal() {
 }
 
 function generateBackup() {
-  $('#backupTextarea').value = JSON.stringify({ papers: db.papers, wrongBook: db.wrongBook, favorites: db.favorites || [], exportedAt: formatDate(Date.now()) }, null, 2);
+  $('#backupTextarea').value = JSON.stringify({ papers: db.papers, wrongBook: db.wrongBook, favorites: db.favorites || [], progress: db.progress || {}, exportedAt: formatDate(Date.now()) }, null, 2);
   toast('已生成备份，可复制或下载');
 }
 
@@ -2473,9 +2556,10 @@ function importBackup() {
   const papers = Array.isArray(data.papers) ? data.papers : [];
   const wrongBook = Array.isArray(data.wrongBook) ? data.wrongBook : [];
   const favorites = Array.isArray(data.favorites) ? data.favorites : [];
-  if (!papers.length && !wrongBook.length && !favorites.length) { toast('没有可导入的数据'); return; }
+  const progress = (data.progress && typeof data.progress === 'object') ? data.progress : {};
+  if (!papers.length && !wrongBook.length && !favorites.length && !Object.keys(progress).length) { toast('没有可导入的数据'); return; }
   if (!confirm('导入将覆盖当前设备的全部数据，是否继续？')) return;
-  db = { papers, wrongBook, progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites };
+  db = { papers, wrongBook, progress, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites };
   saveDB();
   closeBackupModal();
   renderPapers();
@@ -2825,6 +2909,8 @@ $$('.theme-btn').forEach((btn) => {
   btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
 });
 
+$('#floatNext').addEventListener('click', nextQuestion);
+$('#floatNextToggle').addEventListener('change', (e) => setFloatNext(e.target.checked));
 $('#displayToggle').addEventListener('click', toggleDisplayPanel);
 $('#fontDecBtn').addEventListener('click', () => setFontScaleBy(-0.1));
 $('#fontIncBtn').addEventListener('click', () => setFontScaleBy(0.1));
@@ -2854,6 +2940,7 @@ updateBadge();
 initCloud();
 renderAccountArea();
 bindPracticeSwipe();
+bindHeaderFold();
 
 
 

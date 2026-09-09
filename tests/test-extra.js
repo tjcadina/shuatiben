@@ -1,0 +1,53 @@
+﻿const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const { loadApp } = require('./harness');
+
+// 静态：上传提示文案已更新
+const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+assert.ok(html.includes('模拟卷不要有重复的题型'), '提示文案含“模拟卷不要有重复的题型”');
+assert.ok(html.includes('floatNextToggle'), '显示设置含悬浮按钮开关');
+
+const KEY = 'shuatiben_v1';
+function q(id, type) {
+  return { id, question: 'q' + id, options: ['A', 'B', 'C', 'D'], answer: 'A', analysis: '', type: type || 'single', typeLabel: type === 'single' ? '单选题' : '多选题', subject: '数学' };
+}
+const mkPaper = (id, title, subject, questions) => ({ id, title, subject, createdAt: 1, lastResult: null, questions });
+
+// 计分工具：满分 100，题型统计正确
+const ctx = loadApp({});
+const sc = ctx.__run('buildScoring([{q:{type:"single"}},{q:{type:"single"}},{q:{type:"judge"}},{q:{type:"judge"}},{q:{type:"text"}}])');
+assert.strictEqual(sc.perIndex.reduce((a, b) => a + b, 0), 100, '分值总和=100');
+assert.strictEqual(sc.perType['单选题'], 2, '单选题 2 道');
+assert.strictEqual(sc.perType['判断题'], 2, '判断题 2 道');
+
+// 试卷开始即显示计分条
+const storage = {};
+const paper = mkPaper('p1', '置顶测试A', '数学', [q('a1'), q('a2')]);
+storage[KEY] = JSON.stringify({ papers: [paper], wrongBook: [], progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites: [] });
+const ctx2 = loadApp(storage);
+ctx2.__run("startPaper('p1', false);");
+let ph = ctx2.__run("document.querySelector('#view-practice').innerHTML");
+assert.ok(ph.includes('满分 100 分'), '答题页显示计分标准');
+assert.ok(ph.includes('分'), '每题显示分值');
+
+// 悬浮“下一题”开关
+assert.strictEqual(ctx2.__run('isFloatNext()'), true, '默认开启悬浮按钮');
+ctx2.__run('setFloatNext(false);');
+assert.strictEqual(ctx2.__run('isFloatNext()'), false, '可关闭');
+assert.strictEqual(ctx2.__storage['shuatiben_floatnext'], '0', '设置已保存');
+ctx2.__run('setFloatNext(true);');
+
+// 最近刷题置顶：同一科目内，最后刷的试卷排前
+const paperB = mkPaper('pB', '置顶测试B（后刷）', '数学', [q('b1'), q('b2')]);
+ctx2.__run("db.papers.push(" + JSON.stringify(paperB) + ");");
+ctx2.__run("db.papers.find(p=>p.id==='pB').lastOpenedAt = 9999; db.papers.find(p=>p.id==='p1').lastOpenedAt = 100; renderPapers();");
+let papersHtml = ctx2.__run("document.querySelector('#view-papers').innerHTML");
+assert.ok(papersHtml.indexOf('置顶测试B（后刷）') < papersHtml.indexOf('置顶测试A'), '后刷试卷置顶');
+
+// 备份 JSON 含进度
+ctx2.__run("db.progress.p1 = { mode:'paper', title:'t', index:1, answers:[null,{submitted:true}], total:2, updatedAt: 5 }; generateBackup();");
+const backup = JSON.parse(ctx2.__run("document.querySelector('#backupTextarea').value"));
+assert.ok(backup.progress && backup.progress.p1, '备份含进度');
+assert.ok(backup.papers.length >= 2, '备份含试卷');
+console.log('PASS test-extra');

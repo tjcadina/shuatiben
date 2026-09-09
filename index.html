@@ -46,6 +46,10 @@
               <button class="dp-btn" id="fontIncBtn" title="放大字号">A＋</button>
             </div>
             <div class="dp-line">
+              <span class="dp-label">悬浮</span>
+              <label class="dp-check"><input type="checkbox" id="floatNextToggle" /> 下一题悬浮按钮</label>
+            </div>
+            <div class="dp-line">
               <span class="dp-label">字体</span>
               <select id="fontFamilySelect" class="dp-select" title="切换正文字体">
                 <option value="default">系统默认</option>
@@ -87,7 +91,7 @@
         <div class="field">
                     <div class="format-hint">
             <div class="fh-title">📋 上传文档格式提示 / AI 出题要求</div>
-            <div class="fh-text" id="formatPromptText">请依据〔年份〕年〔考试名称〕考试——《〔科目名称〕》的历年考试真题以及命题趋势，AI 智能出 3 套 2026 年即将考试出现概率最高的模拟试题。题量与计分标准按照标准同类型考试给出；并给出参考答案与解析，答案解析放在每道题目后面。</div>
+            <div class="fh-text" id="formatPromptText">请依据 ____ 年 ____ 考试——《____》的历年考试真题以及命题趋势，AI 智能出 ____ 套 ____ 年即将考试出现概率最高的模拟试题。题量与计分标准按照标准同类型考试给出；并给出参考答案与解析，答案解析放在每道题目后面。模拟卷不要有重复的题型。</div>
             <button id="copyPromptBtn" class="btn btn-outline btn-sm">复制这段要求</button>
           </div>
 
@@ -205,6 +209,8 @@
       </div>
     </div>
   </div>
+
+  <div id="floatNext" class="float-next hidden">下一题 ➤</div>
 
   <div id="toast" class="toast"></div>
 
