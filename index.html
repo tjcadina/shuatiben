@@ -85,7 +85,6 @@
 
     <main class="main">
       <header class="topbar" id="topbar"></header>
-      <div id="browserNotice" class="browser-notice hidden"></div>
       <div class="content">
         <section id="view-papers" class="view active"></section>
         <section id="view-wrong" class="view"></section>
@@ -176,8 +175,7 @@
         <button class="modal-close" id="backupClose">×</button>
       </div>
       <div class="modal-body">
-        <div class="backup-warn">⚠️ 请勿用 <b>微信默认浏览器</b> 打开本网页——微信内无法下载文件，会导致数据无法互传。请用<b>系统浏览器</b>（Chrome / 华为浏览器 / Safari）打开。</div>
-        <p class="hint">互传方式：这台设备点「导出 .json」得到文件 → 把文件发到另一台设备 → 在那台设备的“数据传输”里点「导入 .json 文件」。导入会覆盖当前设备的全部数据。</p>
+        <p class="hint">互传方式：这台设备点「导出 .json」得到文件 → 把文件发到另一台设备 → 在那台设备的“数据传输”里点「导入 .json 文件」。导入会覆盖当前设备的全部数据。<br/>小提示：请用系统浏览器（Chrome/华为浏览器/Safari）打开，微信内无法导出文件。</p>
         <div class="modal-actions" style="flex-wrap:wrap;justify-content:flex-start">
           <button id="backupDownloadBtn" class="btn btn-solid">📥 导出 / 下载 .json 文件</button>
           <button id="backupFileBtn" class="btn btn-outline">📁 导入 .json 文件</button>

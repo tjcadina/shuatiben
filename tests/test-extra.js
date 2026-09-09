@@ -83,8 +83,9 @@ assert.strictEqual(importCtx.__run('db.favorites.length'), 1, '导入后收藏�
 assert.ok(importCtx.__run('db.progress.x1'), '导入后进度恢复');
 
 // 微信端：备份提示与“复制优先”逻辑存在
-assert.ok(html.includes('backup-warn') && html.includes('微信默认浏览器'), '数据传输页含微信提醒');
-assert.ok(html.includes('browserNotice'), '含页面级浏览器提醒横幅');
+assert.ok(!html.includes('backup-warn'), '首页不再显示大段微信提醒横幅');
+assert.ok(html.includes('请用系统浏览器'), '数据传输页保留一句简短小提示');
+assert.ok(!html.includes('browserNotice'), '已移除页面级横幅元素');
 const appSrc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 assert.ok(appSrc.includes('isWeChat'), '含微信环境判断');
 assert.ok(appSrc.includes('请勿在微信内导出'), '微信内导出被拦截并提示');

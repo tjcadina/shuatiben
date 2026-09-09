@@ -2559,17 +2559,6 @@ function saveEditPaper() {
   toast('已保存试卷修改');
 }
 
-function showBrowserNotice() {
-  const el = $('#browserNotice');
-  if (!el) return;
-  if (isWeChat()) {
-    el.textContent = '⚠️ 请勿在微信默认浏览器内使用本网页：微信无法下载文件，数据不能互传。请点右上角 “···” → 在浏览器打开，或直接用系统浏览器（Chrome / 华为浏览器）访问。';
-    el.classList.remove('hidden');
-  } else {
-    el.classList.add('hidden');
-  }
-}
-
 function isWeChat() {
   try { return /MicroMessenger/i.test(navigator.userAgent || ''); } catch (e) { return false; }
 }
@@ -3102,7 +3091,6 @@ updateBadge();
 initCloud();
 renderAccountArea();
 bindPracticeSwipe();
-showBrowserNotice();
 
 
 
