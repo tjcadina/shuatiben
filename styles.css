@@ -445,7 +445,9 @@ input,textarea,select{font-family:inherit;color:inherit}
   .menu-toggle{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.16);border-radius:11px;padding:7px 12px;font-size:13px;font-weight:600}
   .sidebar.menu-collapsed .nav,
   .sidebar.menu-collapsed .sidebar-footer,
+  .sidebar.menu-collapsed .brand,
   .sidebar.menu-collapsed .brand-slogan{display:none}
+  .sidebar.menu-collapsed .menu-toggle{align-self:center;margin:2px 0}
   .sidebar.menu-collapsed{padding-bottom:12px}
   .sidebar.menu-collapsed .brand.brand-logo-mode{gap:2px}
 }
