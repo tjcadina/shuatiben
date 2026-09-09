@@ -3053,6 +3053,8 @@ backupFileInput.addEventListener('change', () => {
   };
   reader.readAsText(file, 'utf-8');
 });
+$('#backupCopyBtn').addEventListener('click', copyBackup);
+$('#backupImportBtn').addEventListener('click', importBackup);
 $('#backupOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'backupOverlay') closeBackupModal();
 });
