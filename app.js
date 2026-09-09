@@ -2587,6 +2587,25 @@ function parseSegText(text) {
   const h = m[0];
   return { idx: Number(m[1]) - 1, total: Number(m[2]), body: String(text || '').slice(h.length) };
 }
+function tryAssembleSegments(text) {
+  const s = String(text || '');
+  const re = /【vessel刷题 第(\d+)\/(\d+)段】([\s\S]*?)(?=【vessel刷题 第\d+\/\d+段】|$)/g;
+  const parts = [];
+  let m = null;
+  let totalSeen = 0;
+  let n = 0;
+  while ((m = re.exec(s))) {
+    const idx = Number(m[1]) - 1;
+    const tot = Number(m[2]);
+    totalSeen = Math.max(totalSeen, tot);
+    parts[idx] = m[3].replace(/^\n/, '');
+    n++;
+  }
+  if (!n) return null;
+  for (let i = 0; i < totalSeen; i++) { if (!(i in parts) || parts[i] === null || parts[i] === undefined) return null; }
+  return parts.slice(0, totalSeen).join('');
+}
+
 function segRender() {
   const i = _segIdx, n = _segList.length;
   $('#backupTextarea').value = makeSegText(i, n, _segList[i]);
@@ -2680,8 +2699,17 @@ function downloadBackup() {
 function runImportBackup(raw) {
   raw = String(raw || '').trim();
   if (!raw) { toast('请先选择/粘贴备份文件内容'); return false; }
-  let data;
-  try { data = JSON.parse(raw); } catch (e) { toast('导入失败：不是有效的 JSON'); return false; }
+  let data = null;
+  try { data = JSON.parse(raw); } catch (e) {}
+  if (!data) {
+    const assembled = tryAssembleSegments(raw);
+    if (assembled !== null) { try { data = JSON.parse(assembled); } catch (e2) {} }
+  }
+  if (!data) {
+    if (/【vessel刷题 第/.test(raw)) toast('导入失败：这是“分段传输”内容，请用下方接收端逐段「＋添加这段」后点「合并并导入全部段」，或一次性把完整分段都贴进来');
+    else toast('导入失败：不是有效的 JSON。请完整复制“备份内容”（别漏开头结尾），或改点「📁 选择 .json 文件导入」');
+    return false;
+  }
   const papers = Array.isArray(data.papers) ? data.papers : [];
   const wrongBook = Array.isArray(data.wrongBook) ? data.wrongBook : [];
   const favorites = Array.isArray(data.favorites) ? data.favorites : [];

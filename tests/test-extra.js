@@ -109,4 +109,15 @@ segs.forEach((part, i) => {
 });
 assert.strictEqual(recv, payload, '分段发送->重组后与原文一致');
 
+// 一次性粘贴全部“分段”到导入框：自动拼接后也能导入
+const payload2 = JSON.stringify({ papers: [{ id: 's1', title: '分段卷', subject: '数学', createdAt: 1, questions: [] }], favorites: [] });
+const segs2 = sctx.__run('splitEvery(' + JSON.stringify(payload2) + ', 30)');
+let pastedAll = '';
+segs2.forEach((part, i) => { pastedAll += sctx.__run('makeSegText(' + i + ',' + segs2.length + ',' + JSON.stringify(part) + ')'); });
+const joined2 = sctx.__run('tryAssembleSegments(' + JSON.stringify(pastedAll) + ')');
+assert.strictEqual(joined2, payload2, '整段粘贴自动拼接');
+const imp2 = loadApp(storage);
+assert.ok(imp2.__run('runImportBackup(' + JSON.stringify(pastedAll) + ')') === true, '多段整贴也能导入');
+assert.strictEqual(imp2.__run('db.papers[0].id'), 's1', '导入成功');
+
 console.log('PASS test-extra');
