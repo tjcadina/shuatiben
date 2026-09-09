@@ -179,6 +179,7 @@
         <div class="modal-actions" style="flex-wrap:wrap;justify-content:flex-start">
           <button id="backupDownloadBtn" class="btn btn-solid">📥 导出 / 下载 .json 文件</button>
           <button id="backupFileBtn" type="button" class="btn btn-outline" onclick="document.getElementById('backupFileInput').click()">📁 导入 .json 文件</button>
+          <button id="genLinkBtn" type="button" class="btn btn-outline" onclick="genTransferLink()">🔗 生成迁移链接（微信→浏览器）</button>
           <input type="file" id="backupFileInput" accept=".json,.txt,application/json" class="hidden" onchange="handleBackupFile(this)" />
         </div>
         <details class="backup-seg" id="migratePanel">
@@ -244,6 +245,7 @@
   <!-- Word/PDF 解析库体积较大，改为 defer 后台加载，不影响首屏响应 -->
   <script defer src="vendor/mammoth.browser.min.js"></script>
   <script defer src="vendor/pdf.min.js"></script>
+  <script defer src="vendor/lz-string.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

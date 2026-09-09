@@ -2652,6 +2652,27 @@ function handleBackupFile(input) {
   reader.readAsText(file, 'utf-8');
 }
 
+function genTransferLink() {
+  if (!window.LZString) { toast('链接组件未就绪，请刷新页面重试'); return; }
+  const payload = backupPayload();
+  const enc = window.LZString.compressToEncodedURIComponent(payload);
+  if (enc.length > 7500) { toast('数据太大（约 ' + enc.length + ' 字符），微信链接放不下。请改用「📋 复制本卷」或系统浏览器 + .json 文件。'); return; }
+  try { window.location.hash = '#d=' + enc; } catch (e) { toast('无法写入链接'); return; }
+  toast('已把数据写入链接：请点微信右上角 “···” → “在浏览器打开”，系统浏览器会自动读取并导入');
+}
+function tryImportFromHash() {
+  try {
+    if (!window.LZString || !window.location || !window.location.hash) return;
+    const m = /^#d=([\s\S]+)$/.exec(window.location.hash);
+    if (!m) return;
+    const plain = window.LZString.decompressFromEncodedURIComponent(m[1]);
+    if (!plain) return;
+    window.location.hash = '';
+    const ok = runImportBackup(plain);
+    toast(ok ? '已从链接导入数据' : '链接数据导入未成功，请手动粘贴导入');
+  } catch (e) {}
+}
+
 function copyPaperData(paperId) {
   const p = db.papers.find((x) => x.id === paperId);
   if (!p) { toast('未找到该试卷'); return; }
@@ -3128,6 +3149,7 @@ updateBadge();
 initCloud();
 renderAccountArea();
 bindPracticeSwipe();
+tryImportFromHash();
 
 
 

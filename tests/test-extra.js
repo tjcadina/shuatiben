@@ -139,4 +139,9 @@ assert.ok(sctx2.__run('db.papers.some(p=>p.id==="p1")'), '本机原有试卷未�
 sctx2.__run('runImportBackup(' + JSON.stringify(single) + ')');
 assert.strictEqual(sctx2.__run('db.papers.length'), before + 1, '同 id 不重复添加');
 
+// 迁移链接（微信→浏览器）：按钮与逻辑存在
+assert.ok(fs.existsSync(path.join(__dirname, '..', 'vendor/lz-string.min.js')), '压缩组件存在');
+assert.ok(html.includes('genLinkBtn'), '含迁移链接按钮');
+assert.ok(appSrc.includes('genTransferLink') && appSrc.includes('tryImportFromHash'), '含迁移链接逻辑');
+
 console.log('PASS test-extra');
