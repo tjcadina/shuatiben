@@ -189,8 +189,8 @@
             <p class="hint">如果之前是在微信里刷的题：手机端点「复制备份内容」→ 粘到手机邮箱/备忘录发给电脑；电脑端在本页粘贴并点「导入下方内容」，即可把旧数据搬进来（之后请统一用系统浏览器+ .json 文件互传）。</p>
             <textarea id="backupTextarea" style="min-height:150px" placeholder="旧数据迁移：点“复制备份内容”或在这里粘贴内容"></textarea>
             <div class="modal-actions" style="flex-wrap:wrap;justify-content:flex-start">
-              <button id="backupCopyBtn" class="btn btn-outline">📋 复制备份内容</button>
-              <button id="backupImportBtn" class="btn btn-green">导入下方内容</button>
+              <button id="backupCopyBtn" type="button" class="btn btn-outline" onclick="copyBackup()">📋 复制备份内容</button>
+              <button id="backupImportBtn" type="button" class="btn btn-green" onclick="importBackup()">导入下方内容</button>
             </div>
           </div>
         </details>
