@@ -120,4 +120,7 @@ const imp2 = loadApp(storage);
 assert.ok(imp2.__run('runImportBackup(' + JSON.stringify(pastedAll) + ')') === true, '多段整贴也能导入');
 assert.strictEqual(imp2.__run('db.papers[0].id'), 's1', '导入成功');
 
+assert.ok(html.includes('backupCheckBtn'), '含“检查内容”按钮');
+assert.ok(appSrc.includes('function checkBackupText'), '含内容自检逻辑');
+
 console.log('PASS test-extra');

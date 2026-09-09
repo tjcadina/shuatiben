@@ -2725,6 +2725,32 @@ function runImportBackup(raw) {
   toast('数据导入成功');
   return true;
 }
+function checkBackupText() {
+  const raw = $('#backupTextarea').value || '';
+  if (!raw) { toast('内容为空：请先粘贴要检查的内容'); return; }
+  const t = raw.trim();
+  const msgs = [];
+  msgs.push('长度 ' + raw.length + ' 字');
+  if (/【vessel刷题 第/.test(raw)) {
+    const segCount = (raw.match(/【vessel刷题 第/g) || []).length;
+    const heads = raw.match(/【vessel刷题 第(\d+)\/(\d+)段】/g) || [];
+    msgs.push('是分段内容，检测到 ' + segCount + ' 段（' + heads.join('、') + '）');
+    if (segCount === 1) msgs.push('只有 1 段：若还有后续段请全部贴进来，或用下方接收端逐段添加');
+  } else if (!t.startsWith('{')) {
+    msgs.push('不是以 { 开头（开头是：' + JSON.stringify(raw.slice(0, 20)) + '）——可能多复制了说明文字或只复制了一部分');
+  } else if (!t.endsWith('}')) {
+    msgs.push('不是以 } 结尾——内容可能被截断，请完整复制');
+  }
+  const curly = (raw.match(/[“”]/g) || []).length;
+  if (curly) msgs.push('发现 ' + curly + ' 个中文引号 “ ”（应使用英文双引号 " ）');
+  const openB = (t.match(/{/g) || []).length;
+  const closeB = (t.match(/}/g) || []).length;
+  msgs.push('大括号 ' + openB + '/' + closeB + (openB === closeB ? '（配对正常）' : '（不配对，可能截断）'));
+  try { JSON.parse(raw); msgs.push('✓ 是有效 JSON，可直接导入'); }
+  catch (e) { msgs.push('✗ 解析失败：' + e.message); }
+  toast(msgs.join('；'));
+}
+
 function importBackup() {
   const raw = $('#backupTextarea').value;
   runImportBackup(raw);
@@ -3064,6 +3090,7 @@ $('#backupGenerateBtn').addEventListener('click', generateBackup);
 $('#backupCopyBtn').addEventListener('click', copyBackup);
 $('#backupDownloadBtn').addEventListener('click', downloadBackup);
 $('#backupImportBtn').addEventListener('click', importBackup);
+$('#backupCheckBtn').addEventListener('click', checkBackupText);
 const backupFileInput = $('#backupFileInput');
 $('#backupFileBtn').addEventListener('click', () => backupFileInput.click());
 backupFileInput.addEventListener('change', () => {
