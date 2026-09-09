@@ -88,4 +88,12 @@ const appSrc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 assert.ok(appSrc.includes('isWeChat'), '含微信环境判断');
 assert.ok(appSrc.includes('微信内“下载”会跳到新浏览器'), '下载在微信内转为复制引导');
 
+// 手机界面分组：数据传输/模式/显示
+for (const k of ['transferPanel', 'modePanel', 'displayPanel']) {
+  assert.ok(html.includes('id="' + k + '"'), '含分组面板 ' + k);
+}
+assert.ok(html.includes('>📤 数据传输<') || html.includes('📤 数据传输'), '含数据传输分组');
+assert.ok(html.includes('>🎨 模式<') || html.includes('🎨 模式'), '含模式分组');
+assert.ok(html.includes('>🛠 显示<') || html.includes('🛠 显示'), '含显示分组');
+
 console.log('PASS test-extra');

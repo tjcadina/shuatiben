@@ -461,3 +461,21 @@ input,textarea,select{font-family:inherit;color:inherit}
 .subject-filter select{border:none;background:transparent;font-size:13.5px;font-weight:600;color:var(--text);outline:none;padding:4px}
 [data-theme="dark"] .subject-filter{background:var(--surface);border-color:var(--line)}
 [data-theme="dark"] .subject-filter select{color:#e2e8f0}
+
+/* 手机界面分组：数据传输 / 模式 / 显示 */
+.ft-panel{display:flex;flex-direction:column}
+.ft-panel summary{
+  display:flex;align-items:center;justify-content:space-between;list-style:none;cursor:pointer;
+  width:100%;padding:11px 14px;border-radius:13px;background:rgba(255,255,255,.08);
+  color:#dfe1ff;border:1px solid rgba(255,255,255,.13);font-size:14px;font-weight:600;user-select:none;
+}
+.ft-panel summary:hover{background:rgba(255,255,255,.15)}
+.ft-panel summary::-webkit-details-marker{display:none}
+.ft-panel summary::after{content:"▸";transition:transform .15s ease;color:#aab0d8;font-size:12px}
+.ft-panel[open] summary::after{transform:rotate(90deg)}
+.ft-body{display:flex;flex-direction:column;gap:8px;padding:10px 2px 4px}
+.ft-panel .display-row{padding:0;background:transparent;border:none}
+.ft-panel .dp-title{display:none}
+@media (max-width:820px){
+  .ft-panel summary{padding:12px 14px}
+}

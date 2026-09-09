@@ -191,6 +191,17 @@ function applyFontFamily(name) {
   if (sel) sel.value = fontFamilyName;
 }
 
+function initFooterPanels() {
+  const desktop = !!(window.matchMedia && window.matchMedia('(min-width:821px)').matches);
+  ['transferPanel', 'modePanel', 'displayPanel'].forEach((id) => {
+    const el = $('#' + id);
+    if (el && typeof el.open !== 'undefined') el.open = desktop;
+  });
+  // 分组“显示”内不再用第二层折叠：始终展开字体/悬浮设置
+  const db2 = $('#displayBody');
+  if (db2) db2.classList.remove('hidden');
+}
+
 function initDisplaySettings() {
   let scale = 1;
   let family = 'default';
@@ -3020,6 +3031,7 @@ $('#authOverlay').addEventListener('click', (e) => {
 
 /* ============================== 初始化 ============================== */
 initTheme();
+initFooterPanels();
 initDisplaySettings();
 renderPapers();
 updateBadge();
