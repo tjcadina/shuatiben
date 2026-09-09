@@ -2636,6 +2636,21 @@ function downloadBackup() {
   toast('已导出 .json 文件');
 }
 
+function handleBackupFile(input) {
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+  if (typeof FileReader === 'undefined') { toast('当前浏览器不支持读取文件，请改用支持 FileReader 的浏览器'); return; }
+  toast('正在读取 .json 文件…');
+  const reader = new FileReader();
+  reader.onload = () => {
+    const text = String(reader.result || '');
+    if (input && typeof input.value !== 'undefined') input.value = '';
+    runImportBackup(text);
+  };
+  reader.onerror = () => { toast('读取文件失败，请重试'); };
+  reader.readAsText(file, 'utf-8');
+}
+
 function runImportBackup(raw) {
   raw = String(raw || '').trim();
   if (!raw) { toast('请先选择/粘贴备份文件内容'); return false; }
@@ -3027,21 +3042,6 @@ $('#copyPromptBtn').addEventListener('click', () => {
 $('#openBackupBtn').addEventListener('click', openBackupModal);
 $('#backupClose').addEventListener('click', closeBackupModal);
 $('#backupDownloadBtn').addEventListener('click', downloadBackup);
-const backupFileInput = $('#backupFileInput');
-$('#backupFileBtn').addEventListener('click', () => backupFileInput.click());
-backupFileInput.addEventListener('change', () => {
-  const file = backupFileInput.files && backupFileInput.files[0];
-  if (!file) return;
-  if (typeof FileReader === 'undefined') { toast('当前浏览器不支持读取文件'); return; }
-  const reader = new FileReader();
-  reader.onload = () => {
-    const text = String(reader.result || '');
-    $('#backupTextarea').value = text;
-    backupFileInput.value = '';
-    runImportBackup(text);
-  };
-  reader.readAsText(file, 'utf-8');
-});
 $('#backupOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'backupOverlay') closeBackupModal();
 });

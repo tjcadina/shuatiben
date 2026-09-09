@@ -178,8 +178,8 @@
         <p class="hint">互传方式：这台设备点「导出 .json」得到文件 → 把文件发到另一台设备 → 在那台设备的“数据传输”里点「导入 .json 文件」。导入会覆盖当前设备的全部数据。<br/>小提示：请用系统浏览器（Chrome/华为浏览器/Safari）打开，微信内无法导出文件。</p>
         <div class="modal-actions" style="flex-wrap:wrap;justify-content:flex-start">
           <button id="backupDownloadBtn" class="btn btn-solid">📥 导出 / 下载 .json 文件</button>
-          <button id="backupFileBtn" class="btn btn-outline">📁 导入 .json 文件</button>
-          <input type="file" id="backupFileInput" accept=".json,.txt,application/json" class="hidden" />
+          <button id="backupFileBtn" type="button" class="btn btn-outline" onclick="document.getElementById('backupFileInput').click()">📁 导入 .json 文件</button>
+          <input type="file" id="backupFileInput" accept=".json,.txt,application/json" class="hidden" onchange="handleBackupFile(this)" />
         </div>
         <details class="backup-seg" id="migratePanel">
           <summary>🆘 仅迁移用：把微信里的旧数据搬出来（平时可忽略）</summary>
