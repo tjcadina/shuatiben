@@ -125,4 +125,18 @@ assert.strictEqual(imp2.__run('db.papers[0].id'), 's1', '导入成功');
 assert.ok(html.includes('backupDownloadBtn'), '含导出/下载按钮');
 assert.ok(appSrc.includes('function checkBackupText'), '含内容自检逻辑');
 
+// 单套卷子（小数据）复制粘贴：导入时并入、不覆盖本机其它数据
+const single = JSON.stringify({ v: 1, mode: 'paper', paper: { id: 'w1', title: '微信传过来的卷', subject: '数学', createdAt: 3, questions: [{ id: 'wq', question: 'x?', options: ['A','B'], answer: 'A', analysis: '', type: 'single', typeLabel: '单选题', subject: '数学' }] } });
+const stLocal = {};
+stLocal[KEY] = JSON.stringify({ papers: [mkPaper('p1', '本机原有卷', '数学', [q('keep')])], wrongBook: [], progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites: [] });
+const sctx2 = loadApp(stLocal);
+const before = sctx2.__run('db.papers.length');
+assert.ok(sctx2.__run('runImportBackup(' + JSON.stringify(single) + ')') === true, '单卷导入成功');
+assert.strictEqual(sctx2.__run('db.papers.length'), before + 1, '新增一套');
+assert.ok(sctx2.__run('db.papers.some(p=>p.id==="w1")'), '单卷已加入');
+assert.ok(sctx2.__run('db.papers.some(p=>p.id==="p1")'), '本机原有试卷未被覆盖');
+// 同 id 重复导入：更新而非追加
+sctx2.__run('runImportBackup(' + JSON.stringify(single) + ')');
+assert.strictEqual(sctx2.__run('db.papers.length'), before + 1, '同 id 不重复添加');
+
 console.log('PASS test-extra');

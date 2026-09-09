@@ -1559,6 +1559,7 @@ function renderPapers() {
           <button class="btn btn-solid" data-action="start-paper" data-id="${p.id}">${mainLabel}</button>
           ${showRedo ? `<button class="btn btn-outline btn-sm" data-action="restart-paper" data-id="${p.id}">${redoLabel}</button>` : ''}
           ${wrongCount ? `<button class="btn btn-outline" data-action="start-paper-wrong" data-id="${p.id}">错题重练</button>` : ''}
+          <button class="btn btn-outline btn-sm" data-action="copy-paper" data-id="${p.id}" title="复制本卷数据（可粘贴到其它设备导入）">📋 复制本卷</button>
           <button class="btn btn-outline btn-sm" data-action="edit-paper" data-id="${p.id}">编辑</button>
           <button class="btn btn-danger-soft btn-sm" data-action="delete-paper" data-id="${p.id}">删除</button>
         </div>
@@ -2651,6 +2652,30 @@ function handleBackupFile(input) {
   reader.readAsText(file, 'utf-8');
 }
 
+function copyPaperData(paperId) {
+  const p = db.papers.find((x) => x.id === paperId);
+  if (!p) { toast('未找到该试卷'); return; }
+  const payload = JSON.stringify({ v: 1, mode: 'paper', paper: { id: p.id, title: p.title, subject: p.subject, questions: p.questions, lastResult: p.lastResult || null, lastRecord: p.lastRecord || null } });
+  openBackupModal();
+  const migrate = $('#migratePanel');
+  if (migrate && typeof migrate.open !== 'undefined') migrate.open = true;
+  const ta = $('#backupTextarea');
+  ta.value = payload;
+  ta.select();
+  toast('已把本卷数据放入文本框：长按“全选→复制”，再到目标浏览器/电脑的“数据传输-仅迁移用”粘贴并点“导入下方内容”');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(payload).then(() => toast('已复制，可直接到目标页面粘贴')).catch(() => {});
+  }
+}
+function mergeSinglePaper(paper) {
+  if (!paper || !Array.isArray(paper.questions)) return false;
+  const idx = db.papers.findIndex((x) => x.id === paper.id);
+  const merged = { id: paper.id, title: paper.title || '未命名试卷', subject: paper.subject || '其他', createdAt: paper.createdAt || Date.now(), updatedAt: Date.now(), questions: paper.questions, lastResult: paper.lastResult || null, lastRecord: paper.lastRecord || null };
+  if (idx >= 0) db.papers[idx] = merged; else db.papers.unshift(merged);
+  saveDB();
+  return true;
+}
+
 function runImportBackup(raw) {
   raw = String(raw || '').trim();
   if (!raw) { toast('请先选择/粘贴备份文件内容'); return false; }
@@ -2669,6 +2694,17 @@ function runImportBackup(raw) {
   const wrongBook = Array.isArray(data.wrongBook) ? data.wrongBook : [];
   const favorites = Array.isArray(data.favorites) ? data.favorites : [];
   const progress = (data.progress && typeof data.progress === 'object') ? data.progress : {};
+  if (data && data.mode === 'paper') {
+    if (mergeSinglePaper(data.paper)) {
+      closeBackupModal();
+      renderPapers();
+      updateBadge();
+      toast('已并入 1 套试卷，未覆盖本机其它数据');
+      return true;
+    }
+    toast('导入失败：单卷数据不完整');
+    return false;
+  }
   if (!papers.length && !wrongBook.length && !favorites.length && !Object.keys(progress).length) { toast('没有可导入的数据'); return false; }
   if (!confirm('导入将覆盖当前设备的全部数据，是否继续？')) return false;
   db = { papers, wrongBook, progress, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites };
@@ -2784,6 +2820,7 @@ document.addEventListener('click', (e) => {
 
   if (action === 'open-upload') openUploadModal();
   else if (action === 'load-sample') loadSample();
+  else if (action === 'copy-paper') copyPaperData(id);
   else if (action === 'clear-subject-filter') { paperSubjectFilter = 'all'; renderPapers(); }
   else if (action === 'start-paper') startPaper(id, false);
   else if (action === 'jump-question') goToQuestion(Number(btn.dataset.index));
