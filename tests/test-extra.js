@@ -130,4 +130,10 @@ for (const v of ['vendor/lz-string.min.js', 'vendor/qrcode.min.js', 'vendor/jsQR
 assert.ok(html.includes('qrStartBtn') && html.includes('qrRecvStartBtn'), '含二维码互传按钮');
 assert.ok(appSrc.includes('qrEnvelope') && appSrc.includes('qrScanLoop'), '含二维码互传逻辑');
 
+// 局域网直传：无摄像头替代方案
+assert.ok(html.includes('lanSendBtn'), '含局域网直传按钮');
+assert.ok(appSrc.includes('lanStartPolling'), '含局域网轮询逻辑');
+const serverSrc = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+assert.ok(serverSrc.includes('/api/backup'), '本地服务含中转接口');
+
 console.log('PASS test-extra');

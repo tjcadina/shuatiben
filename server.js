@@ -15,8 +15,43 @@ const types = {
   '.pdf': 'application/pdf'
 };
 
+let lastBackup = null;
+let lastRev = 0;
+function sendJson(res, obj, code) {
+  const body = JSON.stringify(obj);
+  res.writeHead(code || 200, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(body);
+}
+
 http.createServer((req, res) => {
   let urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
+  // 局域网直传接口
+  if (req.method === 'POST' && urlPath === '/api/backup') {
+    let chunks = [];
+    req.on('data', (d) => chunks.push(d));
+    req.on('end', () => {
+      try {
+        const body = Buffer.concat(chunks).toString('utf8');
+        const obj = JSON.parse(body);
+        const data = typeof obj === 'string' ? obj : (obj && obj.data);
+        if (!data) return sendJson(res, { ok: false, error: '缺少 data' }, 400);
+        lastBackup = String(data);
+        lastRev += 1;
+        sendJson(res, { ok: true, rev: lastRev });
+      } catch (e) {
+        sendJson(res, { ok: false, error: String(e.message || e) }, 400);
+      }
+    });
+    return;
+  }
+  if (req.method === 'GET' && urlPath === '/api/backup') {
+    return sendJson(res, { data: lastBackup, rev: lastRev });
+  }
+  if (req.method === 'GET' && urlPath === '/api/backup/clear') {
+    lastBackup = null;
+    lastRev += 1;
+    return sendJson(res, { ok: true, rev: lastRev });
+  }
   if (urlPath === '/') urlPath = '/index.html';
   const filePath = path.normalize(path.join(root, urlPath));
   if (!filePath.startsWith(root)) {

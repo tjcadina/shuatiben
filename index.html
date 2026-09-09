@@ -234,6 +234,16 @@
             <video id="qrVideo" muted playsinline style="width:100%;max-height:240px;border-radius:10px;background:#000;display:none"></video>
             <canvas id="qrScanCanvas" class="hidden"></canvas>
           </div>
+                </details>
+        <details class="backup-seg" id="lanPanel">
+          <summary>📡 局域网直传电脑（无摄像头也能用）</summary>
+          <div class="qr-send">
+            <p class="hint">需要：电脑运行 <code>node server.js</code>，且手机与电脑连同一个 WiFi。手机打开电脑显示的“手机局域网访问”地址，在本页点下方“发送到电脑”，电脑会自动弹出确认并导入。</p>
+            <div class="seg-btns">
+              <button id="lanSendBtn" class="btn btn-solid">发送到电脑（需在局域网打开）</button>
+            </div>
+            <span id="lanStatus" class="hint"></span>
+          </div>
         </details>
       </div>
     </div>

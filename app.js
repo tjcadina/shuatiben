@@ -2741,6 +2741,42 @@ function qrScanLoop() {
   if (qrRecvStream) requestAnimationFrame(qrScanLoop);
 }
 
+let lanAppliedRev = -1, lanTimer = null;
+function isLocalServer() {
+  try {
+    const h = (window.location && window.location.hostname) || '';
+    return window.location.protocol === 'http:' && !!window.location.port && (h === 'localhost' || /^(\d{1,3}\.){3}\d{1,3}$/.test(h));
+  } catch (e) { return false; }
+}
+function lanSend() {
+  if (!isLocalServer()) { $('#lanStatus').textContent = '当前不是局域网地址：请在电脑终端显示的“手机局域网访问”地址里打开本页后再发送'; return; }
+  let raw = $('#backupTextarea').value || '';
+  if (!raw || /^【vessel刷题 第/.test(raw)) { generateBackup(); raw = $('#backupTextarea').value || ''; }
+  if (!raw) { $('#lanStatus').textContent = '请先点「生成备份」'; return; }
+  $('#lanStatus').textContent = '正在发送…';
+  fetch('/api/backup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: raw }) })
+    .then((r) => r.json())
+    .then((j) => { $('#lanStatus').textContent = j.ok ? '✓ 已发送到电脑，请在电脑页面点确认导入' : '发送失败：' + (j.error || ''); })
+    .catch((e) => { $('#lanStatus').textContent = '发送失败：' + (e && e.message ? e.message : e); });
+}
+function lanPoll() {
+  if (!isLocalServer()) return;
+  fetch('/api/backup').then((r) => r.json()).then((j) => {
+    if (j && typeof j.rev === 'number' && j.rev !== lanAppliedRev) {
+      lanAppliedRev = j.rev;
+      if (j.data) {
+        const ok = runImportBackup(j.data);
+        if (!ok) lanAppliedRev = -1;
+      }
+    }
+  }).catch(() => {});
+}
+function lanStartPolling() {
+  if (!isLocalServer() || lanTimer) return;
+  fetch('/api/backup').then((r) => r.json()).then((j) => { if (j && typeof j.rev === 'number') lanAppliedRev = j.rev; }).catch(() => {});
+  lanTimer = setInterval(lanPoll, 1600);
+}
+
 function segRecvImport() {
   const total = _recvTotal;
   if (!total || Object.keys(_recv).length < total) { toast('还没有收齐全部段（先逐段“添加这段”）'); return; }
@@ -3215,6 +3251,7 @@ $('#qrPrevBtn').addEventListener('click', qrPrev);
 $('#qrNextBtn').addEventListener('click', qrNext);
 $('#qrRecvStartBtn').addEventListener('click', qrStartRecv);
 $('#qrRecvStopBtn').addEventListener('click', qrStopRecv);
+$('#lanSendBtn').addEventListener('click', lanSend);
 $('#backupOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'backupOverlay') closeBackupModal();
 });
@@ -3264,6 +3301,7 @@ updateBadge();
 initCloud();
 renderAccountArea();
 bindPracticeSwipe();
+lanStartPolling();
 
 
 
