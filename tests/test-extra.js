@@ -82,4 +82,10 @@ assert.strictEqual(importCtx.__run('db.papers[0].id'), 'x1', '导入后试卷替
 assert.strictEqual(importCtx.__run('db.favorites.length'), 1, '导入后收藏恢复');
 assert.ok(importCtx.__run('db.progress.x1'), '导入后进度恢复');
 
+// 微信端：备份提示与“复制优先”逻辑存在
+assert.ok(html.includes('wechatBackupHint'), '微信备份提示存在');
+const appSrc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+assert.ok(appSrc.includes('isWeChat'), '含微信环境判断');
+assert.ok(appSrc.includes('微信内“下载”会跳到新浏览器'), '下载在微信内转为复制引导');
+
 console.log('PASS test-extra');

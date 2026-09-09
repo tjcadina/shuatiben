@@ -2548,8 +2548,14 @@ function saveEditPaper() {
   toast('已保存试卷修改');
 }
 
+function isWeChat() {
+  try { return /MicroMessenger/i.test(navigator.userAgent || ''); } catch (e) { return false; }
+}
+
 function openBackupModal() {
   $('#backupTextarea').value = '';
+  const hint = $('#wechatBackupHint');
+  if (hint) hint.classList.toggle('hidden', !isWeChat());
   $('#backupOverlay').classList.remove('hidden');
 }
 
@@ -2576,6 +2582,14 @@ function copyBackup() {
 }
 
 function downloadBackup() {
+  if (isWeChat()) {
+    // 微信内“下载”会跳到新浏览器导致看不到本页数据：改为复制引导
+    if (!$('#backupTextarea').value) generateBackup();
+    const ta = $('#backupTextarea');
+    ta.select();
+    try { document.execCommand('copy'); toast('请粘贴到文件传输助手发送给电脑（勿用下载）'); } catch (e) { toast('请手动全选复制下方内容发送给电脑'); }
+    return;
+  }
   if (!$('#backupTextarea').value) generateBackup();
   const data = $('#backupTextarea').value;
   const blob = new Blob([data], { type: 'application/json' });
