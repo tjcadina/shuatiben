@@ -2559,17 +2559,23 @@ function saveEditPaper() {
   toast('已保存试卷修改');
 }
 
+function showBrowserNotice() {
+  const el = $('#browserNotice');
+  if (!el) return;
+  if (isWeChat()) {
+    el.textContent = '⚠️ 请勿在微信默认浏览器内使用本网页：微信无法下载文件，数据不能互传。请点右上角 “···” → 在浏览器打开，或直接用系统浏览器（Chrome / 华为浏览器）访问。';
+    el.classList.remove('hidden');
+  } else {
+    el.classList.add('hidden');
+  }
+}
+
 function isWeChat() {
   try { return /MicroMessenger/i.test(navigator.userAgent || ''); } catch (e) { return false; }
 }
 
 function openBackupModal() {
   $('#backupTextarea').value = '';
-  _segList = []; _segIdx = 0; _recv = {}; _recvTotal = 0;
-  $('#segRecvInput').value = '';
-  $('#segRecvStatus').textContent = '';
-  const hint = $('#wechatBackupHint');
-  if (hint) hint.classList.toggle('hidden', !isWeChat());
   $('#backupOverlay').classList.remove('hidden');
 }
 
@@ -2606,94 +2612,11 @@ function tryAssembleSegments(text) {
   return parts.slice(0, totalSeen).join('');
 }
 
-function segRender() {
-  const i = _segIdx, n = _segList.length;
-  $('#backupTextarea').value = makeSegText(i, n, _segList[i]);
-  $('#segStatus').textContent = '第 ' + (i + 1) + '/' + n + ' 段（约 ' + _segList[i].length + ' 字）：先点「复制当前段」再整段发微信';
+function backupPayload() {
+  return JSON.stringify({ papers: db.papers, wrongBook: db.wrongBook, favorites: db.favorites || [], progress: db.progress || {}, exportedAt: formatDate(Date.now()) }, null, 2);
 }
-function segStart() {
-  let full = $('#backupTextarea').value || '';
-  if (!full) { generateBackup(); full = $('#backupTextarea').value || ''; }
-  if (!full) { toast('请先点「生成备份」'); return; }
-  if (full.length <= 1000) { toast('内容不长，直接「复制备份内容」即可'); return; }
-  _segList = splitEvery(full, 1000);
-  _segIdx = 0;
-  segRender();
-}
-function segPrev() { if (_segIdx > 0) { _segIdx--; segRender(); } else toast('已是第 1 段'); }
-function segNext() { if (_segIdx < _segList.length - 1) { _segIdx++; segRender(); } else toast('已是最后一段'); }
-function segCopy() {
-  if (!_segList.length) { toast('请先点「生成分段」'); return; }
-  const txt = makeSegText(_segIdx, _segList.length, _segList[_segIdx]);
-  const ta = $('#backupTextarea');
-  ta.value = txt; ta.select();
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(txt).then(() => toast('已复制第 ' + (_segIdx + 1) + ' 段，请整段发微信')).catch(() => { try { document.execCommand('copy'); toast('已复制（如未复制请长按手动复制）'); } catch (e) {} });
-  } else {
-    try { document.execCommand('copy'); toast('已复制（如未复制请长按手动复制）'); } catch (e) {}
-  }
-}
-function segRecvAdd() {
-  const raw = $('#segRecvInput').value;
-  const p = parseSegText(raw);
-  if (!p) { toast('未识别到段标记：请把整段（含【第 x/n 段】）粘贴进来'); return; }
-  _recv[p.idx] = p.body;
-  _recvTotal = Math.max(_recvTotal || 0, p.total);
-  $('#segRecvInput').value = '';
-  const got = Object.keys(_recv).length;
-  $('#segRecvStatus').textContent = '已接收 ' + got + '/' + _recvTotal + ' 段';
-}
-let lanAppliedRev = -1, lanTimer = null;
-function isLocalServer() {
-  try {
-    const h = (window.location && window.location.hostname) || '';
-    return window.location.protocol === 'http:' && !!window.location.port && (h === 'localhost' || /^(\d{1,3}\.){3}\d{1,3}$/.test(h));
-  } catch (e) { return false; }
-}
-function lanSend() {
-  if (!isLocalServer()) { $('#lanStatus').textContent = '当前不是局域网地址：请在电脑终端显示的“手机局域网访问”地址里打开本页后再发送'; return; }
-  let raw = $('#backupTextarea').value || '';
-  if (!raw || /^【vessel刷题 第/.test(raw)) { generateBackup(); raw = $('#backupTextarea').value || ''; }
-  if (!raw) { $('#lanStatus').textContent = '请先点「生成备份」'; return; }
-  $('#lanStatus').textContent = '正在发送…';
-  fetch('/api/backup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: raw }) })
-    .then((r) => r.json())
-    .then((j) => { $('#lanStatus').textContent = j.ok ? '✓ 已发送到电脑，请在电脑页面点确认导入' : '发送失败：' + (j.error || ''); })
-    .catch((e) => { $('#lanStatus').textContent = '发送失败：' + (e && e.message ? e.message : e); });
-}
-function lanPoll() {
-  if (!isLocalServer()) return;
-  fetch('/api/backup').then((r) => r.json()).then((j) => {
-    if (j && typeof j.rev === 'number' && j.rev !== lanAppliedRev) {
-      lanAppliedRev = j.rev;
-      if (j.data) {
-        const ok = runImportBackup(j.data);
-        if (!ok) lanAppliedRev = -1;
-      }
-    }
-  }).catch(() => {});
-}
-function lanStartPolling() {
-  if (!isLocalServer() || lanTimer) return;
-  fetch('/api/backup').then((r) => r.json()).then((j) => { if (j && typeof j.rev === 'number') lanAppliedRev = j.rev; }).catch(() => {});
-  lanTimer = setInterval(lanPoll, 1600);
-}
-
-function segRecvImport() {
-  const total = _recvTotal;
-  if (!total || Object.keys(_recv).length < total) { toast('还没有收齐全部段（先逐段“添加这段”）'); return; }
-  const parts = [];
-  for (let i = 0; i < total; i++) {
-    if (!(i in _recv)) { toast('缺少第 ' + (i + 1) + ' 段'); return; }
-    parts.push(_recv[i]);
-  }
-  const ok = runImportBackup(parts.join(''));
-  if (ok) { _recv = {}; _recvTotal = 0; $('#segRecvStatus').textContent = ''; }
-}
-
 function generateBackup() {
-  $('#backupTextarea').value = JSON.stringify({ papers: db.papers, wrongBook: db.wrongBook, favorites: db.favorites || [], progress: db.progress || {}, exportedAt: formatDate(Date.now()) }, null, 2);
-  toast('已生成备份，可复制或下载');
+  $('#backupTextarea').value = backupPayload();
 }
 
 function copyBackup() {
@@ -2710,16 +2633,8 @@ function copyBackup() {
 }
 
 function downloadBackup() {
-  if (isWeChat()) {
-    // 微信内“下载”会跳到新浏览器导致看不到本页数据：改为复制引导
-    if (!$('#backupTextarea').value) generateBackup();
-    const ta = $('#backupTextarea');
-    ta.select();
-    try { document.execCommand('copy'); toast('请粘贴到文件传输助手发送给电脑（勿用下载）'); } catch (e) { toast('请手动全选复制下方内容发送给电脑'); }
-    return;
-  }
-  if (!$('#backupTextarea').value) generateBackup();
-  const data = $('#backupTextarea').value;
+  if (isWeChat()) { toast('请勿在微信内导出：微信无法保存文件。请用系统浏览器（Chrome/华为浏览器）打开本网页后再导出。'); return; }
+  const data = backupPayload();
   const blob = new Blob([data], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -2729,7 +2644,7 @@ function downloadBackup() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-  toast('备份文件已下载');
+  toast('已导出 .json 文件');
 }
 
 function runImportBackup(raw) {
@@ -3122,11 +3037,7 @@ $('#copyPromptBtn').addEventListener('click', () => {
 
 $('#openBackupBtn').addEventListener('click', openBackupModal);
 $('#backupClose').addEventListener('click', closeBackupModal);
-$('#backupGenerateBtn').addEventListener('click', generateBackup);
-$('#backupCopyBtn').addEventListener('click', copyBackup);
 $('#backupDownloadBtn').addEventListener('click', downloadBackup);
-$('#backupImportBtn').addEventListener('click', importBackup);
-$('#backupCheckBtn').addEventListener('click', checkBackupText);
 const backupFileInput = $('#backupFileInput');
 $('#backupFileBtn').addEventListener('click', () => backupFileInput.click());
 backupFileInput.addEventListener('change', () => {
@@ -3142,13 +3053,6 @@ backupFileInput.addEventListener('change', () => {
   };
   reader.readAsText(file, 'utf-8');
 });
-$('#segStartBtn').addEventListener('click', segStart);
-$('#segPrevBtn').addEventListener('click', segPrev);
-$('#segNextBtn').addEventListener('click', segNext);
-$('#segCopyBtn').addEventListener('click', segCopy);
-$('#segRecvAddBtn').addEventListener('click', segRecvAdd);
-$('#segRecvImportBtn').addEventListener('click', segRecvImport);
-$('#lanSendBtn').addEventListener('click', lanSend);
 $('#backupOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'backupOverlay') closeBackupModal();
 });
@@ -3198,7 +3102,7 @@ updateBadge();
 initCloud();
 renderAccountArea();
 bindPracticeSwipe();
-lanStartPolling();
+showBrowserNotice();
 
 
 

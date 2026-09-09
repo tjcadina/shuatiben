@@ -487,3 +487,9 @@ input,textarea,select{font-family:inherit;color:inherit}
 .seg-btns{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 6px}
 .seg-btns .btn{flex:0 0 auto}
 
+
+/* 数据传输提醒 */
+.backup-warn{background:#fff4e5;border:1px solid #f3c878;color:#8a5a00;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.7;margin-bottom:12px}
+[data-theme="dark"] .backup-warn{background:#3a2f0d;border-color:#8a6d1a;color:#fcd34d}
+.browser-notice{background:#ffecec;border:1px solid #f5a3a3;color:#b91c1c;font-size:13.5px;line-height:1.7;padding:10px 16px;margin:8px 16px 0;border-radius:12px}
+.browser-notice.hidden{display:none}

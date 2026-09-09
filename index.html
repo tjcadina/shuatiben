@@ -85,6 +85,7 @@
 
     <main class="main">
       <header class="topbar" id="topbar"></header>
+      <div id="browserNotice" class="browser-notice hidden"></div>
       <div class="content">
         <section id="view-papers" class="view active"></section>
         <section id="view-wrong" class="view"></section>
@@ -171,57 +172,18 @@
   <div id="backupOverlay" class="modal-overlay hidden">
     <div class="modal">
       <div class="modal-head">
-        <h3>备份 / 恢复数据</h3>
+        <h3>数据传输</h3>
         <button class="modal-close" id="backupClose">×</button>
       </div>
       <div class="modal-body">
-        <p class="hint">在设备 A 点“生成备份”，复制下方内容；在设备 B 点“备份 / 恢复数据”，粘贴后点“导入”，即可把试卷和错题搬过去。导入会覆盖当前设备的全部数据。</p>
-        <div class="field">
-          <label for="backupTextarea">备份内容（JSON）</label>
-          <textarea id="backupTextarea" style="min-height:180px" placeholder="点下方按钮生成备份内容"></textarea>
-        </div>
-        <div class="modal-actions" style="flex-wrap:wrap">
-          <p class="hint hidden" id="wechatBackupHint">📌 你在<b>微信</b>里打开：请勿用“下载”。用下面的「复制备份内容」，然后粘贴到微信“文件传输助手/聊天窗口”发给电脑；电脑端在「备份/恢复」里粘贴或选 .json 导入即可。</p>
-          <button id="backupGenerateBtn" class="btn btn-solid">生成备份</button>
-          <button id="backupCopyBtn" class="btn btn-outline">复制备份内容</button>
-          <button id="backupDownloadBtn" class="btn btn-outline">下载为 .json 文件</button>
-          <button id="backupImportBtn" class="btn btn-green">导入下方内容</button>
-          <button id="backupCheckBtn" class="btn btn-outline">🔍 检查内容</button>
-          <button id="backupFileBtn" class="btn btn-outline">📁 选择 .json 文件导入</button>
+        <div class="backup-warn">⚠️ 请勿用 <b>微信默认浏览器</b> 打开本网页——微信内无法下载文件，会导致数据无法互传。请用<b>系统浏览器</b>（Chrome / 华为浏览器 / Safari）打开。</div>
+        <p class="hint">互传方式：这台设备点「导出 .json」得到文件 → 把文件发到另一台设备 → 在那台设备的“数据传输”里点「导入 .json 文件」。导入会覆盖当前设备的全部数据。</p>
+        <div class="modal-actions" style="flex-wrap:wrap;justify-content:flex-start">
+          <button id="backupDownloadBtn" class="btn btn-solid">📥 导出 / 下载 .json 文件</button>
+          <button id="backupFileBtn" class="btn btn-outline">📁 导入 .json 文件</button>
           <input type="file" id="backupFileInput" accept=".json,.txt,application/json" class="hidden" />
         </div>
-        <details class="backup-seg">
-          <summary>✂️ 微信发不出去（超出字数）？用“分段传输”</summary>
-          <div class="field">
-            <label>发送端：生成备份后，把下面每一段单独复制、逐条发微信</label>
-            <div class="seg-btns">
-              <button id="segStartBtn" class="btn btn-outline">生成分段</button>
-              <button id="segPrevBtn" class="btn btn-outline">上一段</button>
-              <button id="segNextBtn" class="btn btn-outline">下一段</button>
-              <button id="segCopyBtn" class="btn btn-solid">复制当前段</button>
-            </div>
-            <span id="segStatus" class="hint"></span>
-          </div>
-          <div class="field">
-            <label>接收端：把收到的每一段粘贴到下方，逐段点「＋添加段」</label>
-            <textarea id="segRecvInput" style="min-height:110px" placeholder="粘贴第 1 段 → 点添加 → 粘贴第 2 段…全部添加后点“合并导入”"></textarea>
-            <div class="seg-btns">
-              <button id="segRecvAddBtn" class="btn btn-outline">＋ 添加这段</button>
-              <button id="segRecvImportBtn" class="btn btn-green">合并并导入全部段</button>
-            </div>
-            <span id="segRecvStatus" class="hint"></span>
-          </div>
-        </details>
-                <details class="backup-seg" id="lanPanel">
-          <summary>📡 局域网直传电脑（无摄像头也能用）</summary>
-          <div class="qr-send">
-            <p class="hint">需要：电脑运行 <code>node server.js</code>，且手机与电脑连同一个 WiFi。手机打开电脑显示的“手机局域网访问”地址，在本页点下方“发送到电脑”，电脑会自动弹出确认并导入。</p>
-            <div class="seg-btns">
-              <button id="lanSendBtn" class="btn btn-solid">发送到电脑（需在局域网打开）</button>
-            </div>
-            <span id="lanStatus" class="hint"></span>
-          </div>
-        </details>
+        <textarea id="backupTextarea" class="hidden"></textarea>
       </div>
     </div>
   </div>

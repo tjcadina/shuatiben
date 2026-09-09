@@ -83,10 +83,11 @@ assert.strictEqual(importCtx.__run('db.favorites.length'), 1, '导入后收藏�
 assert.ok(importCtx.__run('db.progress.x1'), '导入后进度恢复');
 
 // 微信端：备份提示与“复制优先”逻辑存在
-assert.ok(html.includes('wechatBackupHint'), '微信备份提示存在');
+assert.ok(html.includes('backup-warn') && html.includes('微信默认浏览器'), '数据传输页含微信提醒');
+assert.ok(html.includes('browserNotice'), '含页面级浏览器提醒横幅');
 const appSrc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 assert.ok(appSrc.includes('isWeChat'), '含微信环境判断');
-assert.ok(appSrc.includes('微信内“下载”会跳到新浏览器'), '下载在微信内转为复制引导');
+assert.ok(appSrc.includes('请勿在微信内导出'), '微信内导出被拦截并提示');
 
 // 手机界面分组：数据传输/模式/显示
 for (const k of ['transferPanel', 'modePanel', 'displayPanel']) {
@@ -120,13 +121,7 @@ const imp2 = loadApp(storage);
 assert.ok(imp2.__run('runImportBackup(' + JSON.stringify(pastedAll) + ')') === true, '多段整贴也能导入');
 assert.strictEqual(imp2.__run('db.papers[0].id'), 's1', '导入成功');
 
-assert.ok(html.includes('backupCheckBtn'), '含“检查内容”按钮');
+assert.ok(html.includes('backupDownloadBtn'), '含导出/下载按钮');
 assert.ok(appSrc.includes('function checkBackupText'), '含内容自检逻辑');
-
-// 局域网直传：无摄像头替代方案
-assert.ok(html.includes('lanSendBtn'), '含局域网直传按钮');
-assert.ok(appSrc.includes('lanStartPolling'), '含局域网轮询逻辑');
-const serverSrc = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-assert.ok(serverSrc.includes('/api/backup'), '本地服务含中转接口');
 
 console.log('PASS test-extra');
