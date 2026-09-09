@@ -50,4 +50,27 @@ ctx2.__run("db.progress.p1 = { mode:'paper', title:'t', index:1, answers:[null,{
 const backup = JSON.parse(ctx2.__run("document.querySelector('#backupTextarea').value"));
 assert.ok(backup.progress && backup.progress.p1, '备份含进度');
 assert.ok(backup.papers.length >= 2, '备份含试卷');
+// 静态：手机菜单手动折叠按钮存在
+assert.ok(html.includes('id="menuToggle"'), '含菜单折叠按钮');
+
+// 顶部科目下拉选择器
+const ctx3 = loadApp(storage);
+ctx3.__run('renderPapers();');
+let lh = ctx3.__run("document.querySelector('#view-papers').innerHTML");
+assert.ok(lh.includes('paperSubjectFilter'), '试卷库含科目下拉');
+assert.ok(lh.includes('全部科目'), '含“全部科目”项');
+ctx3.__run("paperSubjectFilter = '数学'; renderPapers();");
+let fh3 = ctx3.__run("document.querySelector('#view-papers').innerHTML");
+assert.ok(fh3.includes('置顶测试B（后刷）') || fh3.includes('置顶测试A'), '按科目筛选仍有该科目试卷');
+ctx3.__run("paperSubjectFilter = 'all'; renderPapers();");
+
+// 悬浮下一题开启时：不渲染内联“下一题”；关闭后恢复
+ctx3.__run("startPaper('p1', false); session.answers[0] = { selected: 'A' }; submitCurrentAnswer(); if (session._autoTimer) { clearTimeout(session._autoTimer); session._autoTimer = null; }");
+let vp = ctx3.__run("document.querySelector('#view-practice').innerHTML");
+assert.ok(!vp.includes('id="nextQuestion"'), '开启悬浮时隐藏内联下一题');
+ctx3.__run('setFloatNext(false);');
+vp = ctx3.__run("document.querySelector('#view-practice').innerHTML");
+assert.ok(vp.includes('id="nextQuestion"'), '关闭悬浮时恢复内联下一题');
+ctx3.__run('setFloatNext(true);');
+
 console.log('PASS test-extra');

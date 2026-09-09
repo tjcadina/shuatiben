@@ -124,6 +124,7 @@ function setFloatNext(on) {
   const box = $('#floatNextToggle');
   if (box) box.checked = !!on;
   updateFloatNext();
+  if (currentView === 'practice') renderPractice();
 }
 function updateFloatNext() {
   const btn = $('#floatNext');
@@ -132,6 +133,38 @@ function updateFloatNext() {
     session.answers[session.index] && session.answers[session.index].submitted &&
     session.index + 1 < session.items.length;
   btn.classList.toggle('hidden', !show);
+}
+function makeFloatDraggable() {
+  const btn = $('#floatNext');
+  if (!btn || typeof btn.addEventListener !== 'function' || typeof window.addEventListener !== 'function') return;
+  let sx = 0, sy = 0, ox = 0, oy = 0, dragging = false, moved = false;
+  const down = (e) => {
+    const p = (e.touches && e.touches[0]) || e;
+    sx = p.clientX; sy = p.clientY;
+    const r = (typeof btn.getBoundingClientRect === 'function') ? btn.getBoundingClientRect() : { left: 0, top: 0 };
+    ox = r.left; oy = r.top;
+    dragging = true; moved = false;
+    try { e.preventDefault(); } catch (err) {}
+  };
+  const move = (e) => {
+    if (!dragging) return;
+    const p = (e.touches && e.touches[0]) || e;
+    const dx = p.clientX - sx, dy = p.clientY - sy;
+    if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+    const W = (document.documentElement && document.documentElement.clientWidth) || window.innerWidth || 400;
+    const H = (document.documentElement && document.documentElement.clientHeight) || window.innerHeight || 700;
+    const left = Math.min(Math.max(ox + dx, 0), Math.max(W - 96, 0));
+    const top = Math.min(Math.max(oy + dy, 0), Math.max(H - 76, 0));
+    btn.style.left = left + 'px';
+    btn.style.top = top + 'px';
+    btn.style.right = 'auto';
+    try { e.preventDefault(); } catch (err) {}
+  };
+  const up = () => { dragging = false; if (moved) window.__floatDragMoved = true; };
+  btn.addEventListener('pointerdown', down);
+  window.addEventListener('pointermove', move, { passive: false });
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
 }
 let fontScale = 1;
 let fontFamilyName = 'default';
@@ -1430,6 +1463,19 @@ function showView(view) {
 }
 
 /* ============================== 试卷库 ============================== */
+let paperSubjectFilter = 'all';
+function subjectSelectHtml(list) {
+  const opts = ['<option value="all">📚 全部科目</option>'].concat((list || []).map((s) => `<option value="${escapeHtml(s)}"${paperSubjectFilter === s ? ' selected' : ''}>${escapeHtml(s)}</option>`)).join('');
+  return `<div class="subject-filter"><label>科目</label><select id="paperSubjectFilter">${opts}</select></div>`;
+}
+function bindSubjectFilter() {
+  const sel = $('#paperSubjectFilter');
+  if (!sel) return;
+  sel.addEventListener('change', () => {
+    paperSubjectFilter = sel.value;
+    renderPapers();
+  });
+}
 function renderPapers() {
   setTopbar('试卷库', '按科目自动归档，点击一套试卷开始刷题');
   const root = $('#view-papers');
@@ -1445,16 +1491,27 @@ function renderPapers() {
     return;
   }
 
+  const subjectKeys = [];
+  for (const p of db.papers) { const k = p.subject || '其他'; if (!subjectKeys.includes(k)) subjectKeys.push(k); }
+  const orderedSubjects = [...SUBJECTS.filter((s) => subjectKeys.includes(s)), ...subjectKeys.filter((s) => !SUBJECTS.includes(s))];
+  const filteredPapers = paperSubjectFilter === 'all' ? db.papers : db.papers.filter((x) => (x.subject || '其他') === paperSubjectFilter);
   const groups = {};
-  for (const p of db.papers) {
+  for (const p of filteredPapers) {
     const key = p.subject || '其他';
     (groups[key] = groups[key] || []).push(p);
+  }
+  if (!Object.keys(groups).length) {
+    root.innerHTML = `<div class="library-toolbar">${subjectSelectHtml(orderedSubjects)}</div>
+      <div class="empty"><div class="emoji">🗂️</div><h3>该科目暂无试卷</h3>
+      <button class="btn btn-outline" data-action="clear-subject-filter">查看全部科目</button></div>`;
+    bindSubjectFilter();
+    return;
   }
   const groupLatest = (list) => list.reduce((m, p) => Math.max(m, p.lastOpenedAt || 0), 0);
   const practiced = Object.keys(groups).filter((s) => groupLatest(groups[s]) > 0).sort((a, b) => groupLatest(groups[b]) - groupLatest(groups[a]));
   const others = Object.keys(groups).filter((s) => !practiced.includes(s));
   const orderedKeys = [...practiced, ...SUBJECTS.filter((s) => others.includes(s)), ...others.filter((s) => !SUBJECTS.includes(s))];
-  let html = '';
+  let html = '<div class="library-toolbar">' + subjectSelectHtml(orderedSubjects) + '</div>';
   for (const subject of orderedKeys) {
     const papers = groups[subject].slice().sort((a, b) => ((b.lastOpenedAt || 0) - (a.lastOpenedAt || 0)) || ((b.createdAt || 0) - (a.createdAt || 0)));
     html += `<div class="subject-group"><details open><summary class="subject-head">
@@ -1499,6 +1556,7 @@ function renderPapers() {
     html += `</div></details></div>`;
   }
   root.innerHTML = html;
+  bindSubjectFilter();
 }
 
 /* ============================== 错题集视图 ============================== */
@@ -1941,7 +1999,9 @@ function renderPractice() {
     }
   } else {
     const isLast = index + 1 >= total;
-    action = `<button class="btn btn-solid" id="nextQuestion">${isLast ? '查看答题报告' : '下一题 →'}</button>`;
+    if (!(isFloatNext() && !isLast)) {
+      action = `<button class="btn btn-solid" id="nextQuestion">${isLast ? '查看答题报告' : '下一题 →'}</button>`;
+    }
     action += `<button type="button" class="btn btn-outline btn-sm" data-action="edit-answer">✎ 修改本题答案</button>`;
     if (st.correct && !isLast) action += `<span class="hint" style="color:#16a34a">回答正确，即将自动进入下一题…</span>`;
   }
@@ -2178,19 +2238,6 @@ function handlePracticeSwipe(dx, dy) {
   if (absX < 60 || absX < absY * 1.2) return false; // 太短或偏向竖滑：不处理
   swipeNavigate(dx < 0 ? 'next' : 'prev');
   return true;
-}
-
-function bindHeaderFold() {
-  try {
-    if (!window.matchMedia || !window.matchMedia('(max-width:820px)').matches) return;
-    if (typeof window.addEventListener !== 'function') return;
-    const onScroll = () => {
-      const y = window.pageYOffset || (document.documentElement ? document.documentElement.scrollTop : 0) || 0;
-      document.body.classList.toggle('hide-mobile-header', y > 140);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-  } catch (e) {}
 }
 
 function bindPracticeSwipe() {
@@ -2641,6 +2688,7 @@ document.addEventListener('click', (e) => {
 
   if (action === 'open-upload') openUploadModal();
   else if (action === 'load-sample') loadSample();
+  else if (action === 'clear-subject-filter') { paperSubjectFilter = 'all'; renderPapers(); }
   else if (action === 'start-paper') startPaper(id, false);
   else if (action === 'jump-question') goToQuestion(Number(btn.dataset.index));
   else if (action === 'speak-question') speakCurrentQuestion();
@@ -2909,8 +2957,17 @@ $$('.theme-btn').forEach((btn) => {
   btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
 });
 
-$('#floatNext').addEventListener('click', nextQuestion);
+$('#floatNext').addEventListener('click', () => { if (window.__floatDragMoved) { window.__floatDragMoved = false; return; } nextQuestion(); });
+makeFloatDraggable();
 $('#floatNextToggle').addEventListener('change', (e) => setFloatNext(e.target.checked));
+$('#menuToggle').addEventListener('click', () => {
+  const sb = document.querySelector('.sidebar');
+  if (!sb) return;
+  sb.classList.toggle('menu-collapsed');
+  const btn = $('#menuToggle');
+  const collapsed = sb.classList.contains('menu-collapsed');
+  if (btn) btn.textContent = collapsed ? '☰ 展开菜单' : '☰ 收起菜单';
+});
 $('#displayToggle').addEventListener('click', toggleDisplayPanel);
 $('#fontDecBtn').addEventListener('click', () => setFontScaleBy(-0.1));
 $('#fontIncBtn').addEventListener('click', () => setFontScaleBy(0.1));
@@ -2940,7 +2997,6 @@ updateBadge();
 initCloud();
 renderAccountArea();
 bindPracticeSwipe();
-bindHeaderFold();
 
 
 
