@@ -189,6 +189,28 @@
           <button id="backupFileBtn" class="btn btn-outline">📁 选择 .json 文件导入</button>
           <input type="file" id="backupFileInput" accept=".json,.txt,application/json" class="hidden" />
         </div>
+        <details class="backup-seg">
+          <summary>✂️ 微信发不出去（超出字数）？用“分段传输”</summary>
+          <div class="field">
+            <label>发送端：生成备份后，把下面每一段单独复制、逐条发微信</label>
+            <div class="seg-btns">
+              <button id="segStartBtn" class="btn btn-outline">生成分段</button>
+              <button id="segPrevBtn" class="btn btn-outline">上一段</button>
+              <button id="segNextBtn" class="btn btn-outline">下一段</button>
+              <button id="segCopyBtn" class="btn btn-solid">复制当前段</button>
+            </div>
+            <span id="segStatus" class="hint"></span>
+          </div>
+          <div class="field">
+            <label>接收端：把收到的每一段粘贴到下方，逐段点「＋添加段」</label>
+            <textarea id="segRecvInput" style="min-height:110px" placeholder="粘贴第 1 段 → 点添加 → 粘贴第 2 段…全部添加后点“合并导入”"></textarea>
+            <div class="seg-btns">
+              <button id="segRecvAddBtn" class="btn btn-outline">＋ 添加这段</button>
+              <button id="segRecvImportBtn" class="btn btn-green">合并并导入全部段</button>
+            </div>
+            <span id="segRecvStatus" class="hint"></span>
+          </div>
+        </details>
       </div>
     </div>
   </div>

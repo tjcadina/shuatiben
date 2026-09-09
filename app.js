@@ -2565,6 +2565,9 @@ function isWeChat() {
 
 function openBackupModal() {
   $('#backupTextarea').value = '';
+  _segList = []; _segIdx = 0; _recv = {}; _recvTotal = 0;
+  $('#segRecvInput').value = '';
+  $('#segRecvStatus').textContent = '';
   const hint = $('#wechatBackupHint');
   if (hint) hint.classList.toggle('hidden', !isWeChat());
   $('#backupOverlay').classList.remove('hidden');
@@ -2572,6 +2575,65 @@ function openBackupModal() {
 
 function closeBackupModal() {
   $('#backupOverlay').classList.add('hidden');
+}
+
+let _segList = [], _segIdx = 0, _recv = {}, _recvTotal = 0;
+function splitEvery(s, n) { const out = []; for (let i = 0; i < s.length; i += n) out.push(s.slice(i, i + n)); return out; }
+function segHeader(i, n) { return '【vessel刷题 第' + (i + 1) + '/' + n + '段】'; }
+function makeSegText(i, n, part) { return segHeader(i, n) + '\n' + part; }
+function parseSegText(text) {
+  const m = String(text || '').match(/【vessel刷题 第(\d+)\/(\d+)段】[\s\S]*?\n?/);
+  if (!m) return null;
+  const h = m[0];
+  return { idx: Number(m[1]) - 1, total: Number(m[2]), body: String(text || '').slice(h.length) };
+}
+function segRender() {
+  const i = _segIdx, n = _segList.length;
+  $('#backupTextarea').value = makeSegText(i, n, _segList[i]);
+  $('#segStatus').textContent = '第 ' + (i + 1) + '/' + n + ' 段（约 ' + _segList[i].length + ' 字）：先点「复制当前段」再整段发微信';
+}
+function segStart() {
+  let full = $('#backupTextarea').value || '';
+  if (!full) { generateBackup(); full = $('#backupTextarea').value || ''; }
+  if (!full) { toast('请先点「生成备份」'); return; }
+  if (full.length <= 1000) { toast('内容不长，直接「复制备份内容」即可'); return; }
+  _segList = splitEvery(full, 1000);
+  _segIdx = 0;
+  segRender();
+}
+function segPrev() { if (_segIdx > 0) { _segIdx--; segRender(); } else toast('已是第 1 段'); }
+function segNext() { if (_segIdx < _segList.length - 1) { _segIdx++; segRender(); } else toast('已是最后一段'); }
+function segCopy() {
+  if (!_segList.length) { toast('请先点「生成分段」'); return; }
+  const txt = makeSegText(_segIdx, _segList.length, _segList[_segIdx]);
+  const ta = $('#backupTextarea');
+  ta.value = txt; ta.select();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(() => toast('已复制第 ' + (_segIdx + 1) + ' 段，请整段发微信')).catch(() => { try { document.execCommand('copy'); toast('已复制（如未复制请长按手动复制）'); } catch (e) {} });
+  } else {
+    try { document.execCommand('copy'); toast('已复制（如未复制请长按手动复制）'); } catch (e) {}
+  }
+}
+function segRecvAdd() {
+  const raw = $('#segRecvInput').value;
+  const p = parseSegText(raw);
+  if (!p) { toast('未识别到段标记：请把整段（含【第 x/n 段】）粘贴进来'); return; }
+  _recv[p.idx] = p.body;
+  _recvTotal = Math.max(_recvTotal || 0, p.total);
+  $('#segRecvInput').value = '';
+  const got = Object.keys(_recv).length;
+  $('#segRecvStatus').textContent = '已接收 ' + got + '/' + _recvTotal + ' 段';
+}
+function segRecvImport() {
+  const total = _recvTotal;
+  if (!total || Object.keys(_recv).length < total) { toast('还没有收齐全部段（先逐段“添加这段”）'); return; }
+  const parts = [];
+  for (let i = 0; i < total; i++) {
+    if (!(i in _recv)) { toast('缺少第 ' + (i + 1) + ' 段'); return; }
+    parts.push(_recv[i]);
+  }
+  const ok = runImportBackup(parts.join(''));
+  if (ok) { _recv = {}; _recvTotal = 0; $('#segRecvStatus').textContent = ''; }
 }
 
 function generateBackup() {
@@ -2989,6 +3051,12 @@ backupFileInput.addEventListener('change', () => {
   };
   reader.readAsText(file, 'utf-8');
 });
+$('#segStartBtn').addEventListener('click', segStart);
+$('#segPrevBtn').addEventListener('click', segPrev);
+$('#segNextBtn').addEventListener('click', segNext);
+$('#segCopyBtn').addEventListener('click', segCopy);
+$('#segRecvAddBtn').addEventListener('click', segRecvAdd);
+$('#segRecvImportBtn').addEventListener('click', segRecvImport);
 $('#backupOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'backupOverlay') closeBackupModal();
 });

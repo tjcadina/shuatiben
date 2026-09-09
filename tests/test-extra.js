@@ -96,4 +96,17 @@ assert.ok(html.includes('>📤 数据传输<') || html.includes('📤 数据传�
 assert.ok(html.includes('>🎨 模式<') || html.includes('🎨 模式'), '含模式分组');
 assert.ok(html.includes('>🛠 显示<') || html.includes('🛠 显示'), '含显示分组');
 
+// 分段传输纯函数：切分/加头/解析/重组无损
+const sctx = loadApp({});
+assert.strictEqual(JSON.stringify(sctx.__run('splitEvery("abcdef", 2)')), JSON.stringify(['ab','cd','ef']), '分段正确');
+const payload = JSON.stringify({ papers: [{ title: '卷A', questions: [] }], favorites: [] });
+const segs = sctx.__run('splitEvery(' + JSON.stringify(payload) + ', 50)');
+let recv = '';
+segs.forEach((part, i) => {
+  const txt = sctx.__run('makeSegText(' + i + ',' + segs.length + ',' + JSON.stringify(part) + ')');
+  const p = sctx.__run('parseSegText(' + JSON.stringify(txt) + ')');
+  recv += p.body;
+});
+assert.strictEqual(recv, payload, '分段发送->重组后与原文一致');
+
 console.log('PASS test-extra');
