@@ -2590,22 +2590,17 @@ function downloadBackup() {
   toast('备份文件已下载');
 }
 
-function importBackup() {
-  const raw = $('#backupTextarea').value.trim();
-  if (!raw) { toast('请先粘贴要导入的备份内容'); return; }
+function runImportBackup(raw) {
+  raw = String(raw || '').trim();
+  if (!raw) { toast('请先选择/粘贴备份文件内容'); return false; }
   let data;
-  try {
-    data = JSON.parse(raw);
-  } catch (e) {
-    toast('导入失败：不是有效的 JSON');
-    return;
-  }
+  try { data = JSON.parse(raw); } catch (e) { toast('导入失败：不是有效的 JSON'); return false; }
   const papers = Array.isArray(data.papers) ? data.papers : [];
   const wrongBook = Array.isArray(data.wrongBook) ? data.wrongBook : [];
   const favorites = Array.isArray(data.favorites) ? data.favorites : [];
   const progress = (data.progress && typeof data.progress === 'object') ? data.progress : {};
-  if (!papers.length && !wrongBook.length && !favorites.length && !Object.keys(progress).length) { toast('没有可导入的数据'); return; }
-  if (!confirm('导入将覆盖当前设备的全部数据，是否继续？')) return;
+  if (!papers.length && !wrongBook.length && !favorites.length && !Object.keys(progress).length) { toast('没有可导入的数据'); return false; }
+  if (!confirm('导入将覆盖当前设备的全部数据，是否继续？')) return false;
   db = { papers, wrongBook, progress, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites };
   saveDB();
   closeBackupModal();
@@ -2613,6 +2608,11 @@ function importBackup() {
   renderWrongBook();
   updateBadge();
   toast('数据导入成功');
+  return true;
+}
+function importBackup() {
+  const raw = $('#backupTextarea').value;
+  runImportBackup(raw);
 }
 
 function loadSample() {
@@ -2949,6 +2949,21 @@ $('#backupGenerateBtn').addEventListener('click', generateBackup);
 $('#backupCopyBtn').addEventListener('click', copyBackup);
 $('#backupDownloadBtn').addEventListener('click', downloadBackup);
 $('#backupImportBtn').addEventListener('click', importBackup);
+const backupFileInput = $('#backupFileInput');
+$('#backupFileBtn').addEventListener('click', () => backupFileInput.click());
+backupFileInput.addEventListener('change', () => {
+  const file = backupFileInput.files && backupFileInput.files[0];
+  if (!file) return;
+  if (typeof FileReader === 'undefined') { toast('当前浏览器不支持读取文件'); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const text = String(reader.result || '');
+    $('#backupTextarea').value = text;
+    backupFileInput.value = '';
+    runImportBackup(text);
+  };
+  reader.readAsText(file, 'utf-8');
+});
 $('#backupOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'backupOverlay') closeBackupModal();
 });

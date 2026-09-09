@@ -73,4 +73,13 @@ vp = ctx3.__run("document.querySelector('#view-practice').innerHTML");
 assert.ok(vp.includes('id="nextQuestion"'), '关闭悬浮时恢复内联下一题');
 ctx3.__run('setFloatNext(true);');
 
+// 文件导入：支持选择 .json 上传到本页导入（手机->电脑 互通）
+assert.ok(html.includes('backupFileBtn'), '含“选择 .json 文件导入”按钮');
+const backupDoc = JSON.stringify({ papers:[{ id:'x1', title:'导入卷', subject:'数学', createdAt:1, questions:[{id:'xq',question:'1?',options:['A','B'],answer:'A',analysis:'',type:'single',typeLabel:'单选题',subject:'数学'}] }], wrongBook:[], favorites:[{id:'f1',paperId:'x1',subject:'数学',questionId:'xq',question:{id:'xq',question:'1?',options:[],answer:'A'}}], progress:{ x1:{ mode:'paper', index:0, answers:[null], total:1, updatedAt:1 } } });
+const importCtx = loadApp(storage);
+assert.ok(importCtx.__run('runImportBackup(' + JSON.stringify(backupDoc) + ')') === true, '文件内容可导入');
+assert.strictEqual(importCtx.__run('db.papers[0].id'), 'x1', '导入后试卷替换');
+assert.strictEqual(importCtx.__run('db.favorites.length'), 1, '导入后收藏恢复');
+assert.ok(importCtx.__run('db.progress.x1'), '导入后进度恢复');
+
 console.log('PASS test-extra');
