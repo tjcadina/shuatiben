@@ -123,4 +123,11 @@ assert.strictEqual(imp2.__run('db.papers[0].id'), 's1', '导入成功');
 assert.ok(html.includes('backupCheckBtn'), '含“检查内容”按钮');
 assert.ok(appSrc.includes('function checkBackupText'), '含内容自检逻辑');
 
+// 二维码互传：组件文件与入口存在
+for (const v of ['vendor/lz-string.min.js', 'vendor/qrcode.min.js', 'vendor/jsQR.js']) {
+  assert.ok(fs.existsSync(path.join(__dirname, '..', v)), v + ' 存在');
+}
+assert.ok(html.includes('qrStartBtn') && html.includes('qrRecvStartBtn'), '含二维码互传按钮');
+assert.ok(appSrc.includes('qrEnvelope') && appSrc.includes('qrScanLoop'), '含二维码互传逻辑');
+
 console.log('PASS test-extra');

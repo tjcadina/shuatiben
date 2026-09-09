@@ -2643,6 +2643,104 @@ function segRecvAdd() {
   const got = Object.keys(_recv).length;
   $('#segRecvStatus').textContent = '已接收 ' + got + '/' + _recvTotal + ' 段';
 }
+let qrChunks = [], qrIdx = 0, qrRecv = {}, qrRecvTotal = 0, qrRecvStream = null;
+function qrEnvelope(i, n, d) { return JSON.stringify({ v: 1, i, n, d: d }); }
+function qrParseEnvelope(t) {
+  try { const o = JSON.parse(t); if (o && o.v === 1 && typeof o.i === 'number' && typeof o.d === 'string' && typeof o.n === 'number') return o; } catch (e) {}
+  return null;
+}
+function qrStart() {
+  if (!window.LZString || !window.QRCode) { toast('二维码组件未就绪，请刷新页面重试'); return; }
+  let raw = $('#backupTextarea').value || '';
+  if (!raw || /^【vessel刷题 第/.test(raw)) { generateBackup(); raw = $('#backupTextarea').value || ''; }
+  if (!raw) { toast('请先生成备份'); return; }
+  const comp = window.LZString.compressToBase64(raw);
+  qrChunks = splitEvery(comp, 850);
+  qrIdx = 0;
+  qrRender();
+}
+function qrRender() {
+  if (!qrChunks.length) return;
+  const text = qrEnvelope(qrIdx, qrChunks.length, qrChunks[qrIdx]);
+  const box = $('#qrBox');
+  box.innerHTML = '';
+  const el = document.createElement('div');
+  box.appendChild(el);
+  try {
+    const opts = { text, width: 256, height: 256 };
+    if (window.QRCode.CorrectLevel) opts.correctLevel = window.QRCode.CorrectLevel.M;
+    new window.QRCode(el, opts);
+  } catch (e) { box.textContent = '二维码生成失败：' + (e && e.message ? e.message : e); }
+  $('#qrStatus').textContent = '二维码 ' + (qrIdx + 1) + ' / ' + qrChunks.length + ' · 电脑扫到这张后点「下一张」';
+}
+function qrPrev() { if (qrIdx > 0) { qrIdx--; qrRender(); } else toast('已是第 1 张'); }
+function qrNext() { if (qrIdx < qrChunks.length - 1) { qrIdx++; qrRender(); } else toast('已是最后一张'); }
+function qrStopRecv() {
+  if (qrRecvStream) { try { qrRecvStream.getTracks().forEach((t) => t.stop()); } catch (e) {} }
+  qrRecvStream = null;
+  const v = $('#qrVideo');
+  if (v) v.style.display = 'none';
+}
+function qrStartRecv() {
+  if (!window.jsQR) { toast('二维码识别组件未就绪，请刷新页面重试'); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast('当前浏览器/环境不支持调用摄像头（建议用电脑 Chrome）'); return; }
+  qrRecv = {};
+  qrRecvTotal = 0;
+  const video = $('#qrVideo');
+  const status = $('#qrRecvStatus');
+  video.style.display = 'block';
+  status.textContent = '正在打开摄像头…请把手机二维码对准镜头';
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then((stream) => {
+    qrRecvStream = stream;
+    video.srcObject = stream;
+    video.setAttribute('playsinline', '');
+    video.play().catch(() => {});
+    status.textContent = '请对准二维码…';
+    requestAnimationFrame(qrScanLoop);
+  }).catch((e) => {
+    status.textContent = '无法打开摄像头：' + (e && e.message ? e.message : e) + '（请允许摄像头权限）';
+    video.style.display = 'none';
+  });
+}
+function qrScanLoop() {
+  if (!qrRecvStream) return;
+  const video = $('#qrVideo');
+  const status = $('#qrRecvStatus');
+  if (video && video.readyState >= video.HAVE_ENOUGH_DATA) {
+    const canvas = $('#qrScanCanvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const g = canvas.getContext('2d');
+    g.drawImage(video, 0, 0, canvas.width, canvas.height);
+    try {
+      const img = g.getImageData(0, 0, canvas.width, canvas.height);
+      const code = window.jsQR(img.data, img.width, img.height);
+      if (code && code.data) {
+        const env = qrParseEnvelope(code.data);
+        if (env) {
+          qrRecv[env.i] = env.d;
+          qrRecvTotal = Math.max(qrRecvTotal || 0, env.n);
+          status.textContent = '已收到 ' + Object.keys(qrRecv).length + ' / ' + qrRecvTotal + ' 段 · 继续对准下一张（手机点“下一张”）';
+          if (Object.keys(qrRecv).length >= qrRecvTotal) {
+            const parts = [];
+            for (let i = 0; i < qrRecvTotal; i++) { if (!(i in qrRecv)) { status.textContent = '缺少第 ' + (i + 1) + ' 段'; qrStopRecv(); return; } parts.push(qrRecv[i]); }
+            const comp = parts.join('');
+            try {
+              const plain = window.LZString.decompressFromBase64(comp);
+              if (plain === null || plain === undefined) { status.textContent = '解压失败：内容可能不完整，请重扫'; qrStopRecv(); return; }
+              const ok = runImportBackup(plain);
+              status.textContent = ok ? '✓ 导入成功，二维码互传完成' : '导入未成功，见顶部提示';
+            } catch (e) { status.textContent = '导入失败：' + (e && e.message ? e.message : e); }
+            qrStopRecv();
+            return;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  if (qrRecvStream) requestAnimationFrame(qrScanLoop);
+}
+
 function segRecvImport() {
   const total = _recvTotal;
   if (!total || Object.keys(_recv).length < total) { toast('还没有收齐全部段（先逐段“添加这段”）'); return; }
@@ -3112,6 +3210,11 @@ $('#segNextBtn').addEventListener('click', segNext);
 $('#segCopyBtn').addEventListener('click', segCopy);
 $('#segRecvAddBtn').addEventListener('click', segRecvAdd);
 $('#segRecvImportBtn').addEventListener('click', segRecvImport);
+$('#qrStartBtn').addEventListener('click', qrStart);
+$('#qrPrevBtn').addEventListener('click', qrPrev);
+$('#qrNextBtn').addEventListener('click', qrNext);
+$('#qrRecvStartBtn').addEventListener('click', qrStartRecv);
+$('#qrRecvStopBtn').addEventListener('click', qrStopRecv);
 $('#backupOverlay').addEventListener('click', (e) => {
   if (e.target.id === 'backupOverlay') closeBackupModal();
 });

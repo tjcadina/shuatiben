@@ -486,3 +486,7 @@ input,textarea,select{font-family:inherit;color:inherit}
 .backup-seg summary::-webkit-details-marker{display:none}
 .seg-btns{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 6px}
 .seg-btns .btn{flex:0 0 auto}
+
+/* 二维码互传 */
+.qr-box{display:flex;justify-content:center;margin:6px 0;padding:8px;background:#fff;border-radius:12px}
+.qr-box img,.qr-box canvas{display:block}

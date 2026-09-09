@@ -212,6 +212,29 @@
             <span id="segRecvStatus" class="hint"></span>
           </div>
         </details>
+        <details class="backup-seg" id="qrPanel">
+          <summary>📷 二维码互传（不走聊天软件，不会被改坏）</summary>
+          <div class="qr-send">
+            <label>发送端（手机）：点“生成二维码”，把手机屏幕对准电脑摄像头，电脑扫到一张就点“下一张”</label>
+            <div class="seg-btns">
+              <button id="qrStartBtn" class="btn btn-solid">生成二维码</button>
+              <button id="qrPrevBtn" class="btn btn-outline">上一张</button>
+              <button id="qrNextBtn" class="btn btn-outline">下一张</button>
+            </div>
+            <span id="qrStatus" class="hint"></span>
+            <div id="qrBox" class="qr-box"></div>
+          </div>
+          <div class="qr-recv">
+            <label>接收端（电脑）：点“开始扫码”，把手机二维码对准电脑摄像头</label>
+            <div class="seg-btns">
+              <button id="qrRecvStartBtn" class="btn btn-solid">开始扫码</button>
+              <button id="qrRecvStopBtn" class="btn btn-outline">停止</button>
+            </div>
+            <span id="qrRecvStatus" class="hint"></span>
+            <video id="qrVideo" muted playsinline style="width:100%;max-height:240px;border-radius:10px;background:#000;display:none"></video>
+            <canvas id="qrScanCanvas" class="hidden"></canvas>
+          </div>
+        </details>
       </div>
     </div>
   </div>
@@ -264,6 +287,9 @@
   <!-- Word/PDF 解析库体积较大，改为 defer 后台加载，不影响首屏响应 -->
   <script defer src="vendor/mammoth.browser.min.js"></script>
   <script defer src="vendor/pdf.min.js"></script>
+  <script defer src="vendor/lz-string.min.js"></script>
+  <script defer src="vendor/qrcode.min.js"></script>
+  <script defer src="vendor/jsQR.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
