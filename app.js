@@ -1032,22 +1032,29 @@ function extractInlineOptions(text) {
   return { question: text.slice(0, first.start).trim(), options };
 }
 
+function stripLabelSuffix(s) {
+  let t = String(s || '').trim();
+  t = t.replace(/^\*+\s*[】\]〗]?\s*\*+/, ''); // 去掉 ** 与 】/〗/】 的任意组合
+  t = t.replace(/^\s*[:：]?\s*/, '');
+  t = t.replace(/\*+$/, '').trim();
+  return t;
+}
 function extractAnswerAnalysis(text) {
   const s = String(text == null ? '' : text);
   const anaIdx = s.indexOf('解析');
   let answer = '';
   let analysis = '';
   if (anaIdx >= 0) {
-    analysis = s.slice(anaIdx + 2).replace(/^[】\]〗]?\s*[:：]?\s*/, '').trim();
+    analysis = stripLabelSuffix(s.slice(anaIdx + 2));
     const beforeAna = s.slice(0, anaIdx);
     const ansIdx = beforeAna.lastIndexOf('答案');
     if (ansIdx >= 0) {
-      answer = beforeAna.slice(ansIdx + 2).replace(/^[】\]〗]?\s*[:：]?\s*/, '').trim();
+      answer = stripLabelSuffix(beforeAna.slice(ansIdx + 2));
     }
   } else {
     const ansIdx = s.lastIndexOf('答案');
     if (ansIdx >= 0) {
-      answer = s.slice(ansIdx + 2).replace(/^[】\]〗]?\s*[:：]?\s*/, '').trim();
+      answer = stripLabelSuffix(s.slice(ansIdx + 2));
     }
   }
   // 答案解析 这种“答案”只用于提示“解析”，不当作答案
@@ -1060,7 +1067,7 @@ function extractAnswerAnalysis(text) {
 function splitAnswerAnalysis(str) { return extractAnswerAnalysis(str); }
 
 function isAnswerSectionHeader(line) {
-  const t = line.replace(/^[一二三四五六七八九十]+[、.．]\s*/, '').replace(/[【\[\]〖〗"“”】]/g, '').trim();
+  const t = line.replace(/^[一二三四五六七八九十]+[、.．]\s*/, '').replace(/[【\[\]〖〗"“”】*]/g, '').trim();
   return /^(?:参考答案|答案与解析|答案解析|试题答案|答案详解|参考答案及解析|参考答案与解析|答案及解析|试题答案解析)(?:[:：]?\s*)$/.test(t)
     || /^答案[:：]?\s*$/.test(t)
     || /^(?:解析|答案解析|试题解析|详解|分析|本题解析)$/.test(t.replace(/[【\[\]"“”】:：\s]/g, ''));

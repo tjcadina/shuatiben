@@ -108,4 +108,10 @@ const parsed7 = ctx.__run('parseAuto(' + JSON.stringify(text7) + ', "f7")');
 assert.strictEqual(parsed7.papers[0].questions[0].answer, 'B', '参考答案=答案');
 assert.strictEqual(parsed7.papers[0].questions[1].answer, 'C', '答案=参考答案');
 
+// 带加粗星号的标签也等同处理
+const text8 = ['2026年考试《H》试题','1. 1+1=?','A. 1','B. 2','**〖参考答案〗**：B','2. 2+2=?','A. 2','B. 3','C. 4','**〖解析〗**因为 2+2=4'].join('\n');
+const parsed8 = ctx.__run('parseAuto(' + JSON.stringify(text8) + ', "f8")');
+assert.strictEqual(parsed8.papers[0].questions[0].answer, 'B', '带星号参考答案可识别');
+assert.ok(parsed8.papers[0].questions[1].analysis.includes('2+2=4'), '带星号解析可识别');
+
 console.log('PASS test-exam');
