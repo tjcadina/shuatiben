@@ -75,4 +75,10 @@ const parsed2 = ctx.__run('parseAuto(' + JSON.stringify(text2) + ', "f2")');
 assert.ok(parsed2.papers[0].questions[0].analysis.includes('1+1=2'), '本题解析 被识别');
 assert.ok(parsed2.papers[0].questions[1].analysis.includes('2+2=4'), '答案解析说明 被识别');
 
+// 〖解析〗/〖答案〗 也能识别
+const text3 = ['2026年考试《C》试题','1. 1+1=?','A. 1','B. 2','〖答案〗：B','〖解析〗因为 1+1=2'].join('\n');
+const parsed3 = ctx.__run('parseAuto(' + JSON.stringify(text3) + ', "f3")');
+assert.strictEqual(parsed3.papers[0].questions[0].answer, 'B', '〖答案〗可识别');
+assert.ok(parsed3.papers[0].questions[0].analysis.includes('1+1=2'), '〖解析〗可识别');
+
 console.log('PASS test-exam');
