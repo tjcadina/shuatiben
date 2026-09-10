@@ -503,3 +503,9 @@ input,textarea,select{font-family:inherit;color:inherit}
 .analysis-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .analysis-speaker{width:28px;height:28px;flex:0 0 28px;font-size:14px}
 .analysis-text{line-height:1.8}
+
+/* 回收站 */
+.library-toolbar{justify-content:space-between;align-items:center}
+.library-toolbar-filter{display:inline-flex}
+.trash-item{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:var(--surface-2)}
+.trash-item .btn{flex:0 0 auto}

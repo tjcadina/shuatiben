@@ -294,11 +294,12 @@ function loadDB() {
         if (!Array.isArray(d.deletedWrong)) d.deletedWrong = [];
         if (!d.clearedProgress || typeof d.clearedProgress !== 'object') d.clearedProgress = {};
         if (!Array.isArray(d.favorites)) d.favorites = [];
+        if (!Array.isArray(d.trash)) d.trash = [];
         return d;
       }
     }
   } catch (e) {}
-  return { papers: [], wrongBook: [], progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites: [] };
+  return { papers: [], wrongBook: [], progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites: [], trash: [] };
 }
 
 function saveDB() {
@@ -1635,6 +1636,7 @@ function renderPapers() {
         <p>上传一份试卷，系统会自动识别科目并拆分为刷题模式。</p>
         <button class="btn btn-solid" data-action="open-upload">＋ 上传第一份试卷</button>
         <button class="btn btn-outline" data-action="load-sample">载入示例试卷体验</button>
+        <button class="btn btn-outline" data-action="open-trash">🗑 回收站（恢复误删试卷）</button>
       </div>`;
     return;
   }
@@ -1659,7 +1661,7 @@ function renderPapers() {
   const practiced = Object.keys(groups).filter((s) => groupLatest(groups[s]) > 0).sort((a, b) => groupLatest(groups[b]) - groupLatest(groups[a]));
   const others = Object.keys(groups).filter((s) => !practiced.includes(s));
   const orderedKeys = [...practiced, ...SUBJECTS.filter((s) => others.includes(s)), ...others.filter((s) => !SUBJECTS.includes(s))];
-  let html = '<div class="library-toolbar">' + subjectSelectHtml(orderedSubjects) + '</div>';
+  let html = '<div class="library-toolbar"><span class="library-toolbar-filter">' + subjectSelectHtml(orderedSubjects) + '</span><button class="btn btn-outline btn-sm" data-action="open-trash">🗑 回收站</button></div>';
   for (const subject of orderedKeys) {
     const papers = groups[subject].slice().sort((a, b) => ((b.lastOpenedAt || 0) - (a.lastOpenedAt || 0)) || ((b.createdAt || 0) - (a.createdAt || 0)));
     html += `<div class="subject-group"><details open><summary class="subject-head">
@@ -2910,7 +2912,7 @@ function runImportBackup(raw) {
   }
   if (!papers.length && !wrongBook.length && !favorites.length && !Object.keys(progress).length) { toast('没有可导入的数据'); return false; }
   if (!confirm('导入将覆盖当前设备的全部数据，是否继续？')) return false;
-  db = { papers, wrongBook, progress, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites };
+  db = { papers, wrongBook, progress, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites, trash: [] };
   saveDB();
   closeBackupModal();
   renderPapers();
@@ -3025,6 +3027,9 @@ document.addEventListener('click', (e) => {
   else if (action === 'load-sample') loadSample();
   else if (action === 'copy-paper') copyPaperData(id);
   else if (action === 'start-paper-info') showExamInfo(id);
+  else if (action === 'open-trash') openTrash();
+  else if (action === 'restore-trash') restoreTrash(id);
+  else if (action === 'clear-trash') clearTrash();
   else if (action === 'clear-subject-filter') { paperSubjectFilter = 'all'; renderPapers(); }
   else if (action === 'start-paper') startPaper(id, false);
   else if (action === 'jump-question') goToQuestion(Number(btn.dataset.index));
@@ -3052,6 +3057,7 @@ document.addEventListener('click', (e) => {
     const p = db.papers.find((x) => x.id === id);
     if (!p) return;
     if (confirm(`确定删除「${p.title}」吗？其错题记录也会一并删除。`)) {
+      recordTrash(id); // 24 小时内可在回收站恢复
       recordTombstone('deletedPapers', id);
       db.wrongBook.filter((w) => w.paperId === id).forEach((w) => recordTombstone('deletedWrong', w.id));
       db.papers = db.papers.filter((x) => x.id !== id);
@@ -3060,7 +3066,7 @@ document.addEventListener('click', (e) => {
       saveDB();
       renderPapers();
       updateBadge();
-      toast('已删除试卷');
+      toast('已删除试卷（24 小时内可在回收站恢复）');
     }
   }
   else if (action === 'practice-all-wrong') startWrongPractice(db.wrongBook.map((w) => w.id));
@@ -3286,6 +3292,9 @@ $('#copyPromptBtn').addEventListener('click', () => {
 $('#examClose').addEventListener('click', closeExamInfo);
 $('#examCancel').addEventListener('click', closeExamInfo);
 $('#examStart').addEventListener('click', startExamNow);
+$('#trashClose').addEventListener('click', () => $('#trashOverlay').classList.add('hidden'));
+$('#trashClear').addEventListener('click', clearTrash);
+$('#trashOverlay').addEventListener('click', (e) => { if (e.target.id === 'trashOverlay') $('#trashOverlay').classList.add('hidden'); });
 $('#examOverlay').addEventListener('click', (e) => { if (e.target.id === 'examOverlay') closeExamInfo(); });
 $('#openBackupBtn').addEventListener('click', openBackupModal);
 $('#backupClose').addEventListener('click', closeBackupModal);
@@ -3369,3 +3378,79 @@ tryImportFromHash();
 
 
 
+function ensureTrash() {
+  if (!Array.isArray(db.trash)) db.trash = [];
+}
+function pruneTrash() {
+  ensureTrash();
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  if (db.trash.some((t) => (t.deletedAt || 0) < cutoff)) {
+    db.trash = db.trash.filter((t) => (t.deletedAt || 0) >= cutoff);
+    saveDB();
+  }
+}
+function recordTrash(paperId) {
+  const p = db.papers.find((x) => x.id === paperId);
+  if (!p) return;
+  ensureTrash();
+  const wrongs = db.wrongBook.filter((w) => w.paperId === paperId).map((w) => JSON.parse(JSON.stringify(w)));
+  const progressEntry = db.progress && db.progress[paperId] ? JSON.parse(JSON.stringify(db.progress[paperId])) : null;
+  db.trash.unshift({
+    id: uid('trash'),
+    paperId: paperId,
+    paper: JSON.parse(JSON.stringify(p)),
+    wrongs: wrongs,
+    progressEntry: progressEntry,
+    deletedAt: Date.now()
+  });
+}
+function restoreTrash(id) {
+  const idx = db.trash.findIndex((t) => t.id === id);
+  if (idx < 0) { toast('未找到该回收记录'); return; }
+  const t = db.trash[idx];
+  if (!db.papers.some((x) => x.id === t.paperId)) db.papers.push(t.paper);
+  (t.wrongs || []).forEach((w) => {
+    if (!db.wrongBook.some((x) => x.id === w.id)) db.wrongBook.push(w);
+  });
+  if (t.progressEntry && (!db.progress || !db.progress[t.paperId])) {
+    if (!db.progress || typeof db.progress !== 'object') db.progress = {};
+    db.progress[t.paperId] = t.progressEntry;
+  }
+  if (Array.isArray(db.deletedPapers)) db.deletedPapers = db.deletedPapers.filter((x) => x !== t.paperId);
+  if (Array.isArray(db.deletedWrong)) {
+    const restoredWrongIds = new Set((t.wrongs || []).map((w) => w.id));
+    db.deletedWrong = db.deletedWrong.filter((x) => !restoredWrongIds.has(x));
+  }
+  db.trash.splice(idx, 1);
+  saveDB();
+  renderPapers();
+  renderWrongBook();
+  updateBadge();
+  toast('已恢复试卷：' + (t.paper && t.paper.title ? t.paper.title : '未命名'));
+}
+function openTrash() {
+  pruneTrash();
+  renderTrash();
+  $('#trashOverlay').classList.remove('hidden');
+}
+function renderTrash() {
+  ensureTrash();
+  pruneTrash();
+  const list = $('#trashList');
+  if (!list) return;
+  if (!db.trash.length) {
+    list.innerHTML = '<p class="hint">回收站为空。删除的试卷会在回收站保留 24 小时。</p>';
+    return;
+  }
+  list.innerHTML = db.trash.map((t) => {
+    const left = Math.max(0, 24 - Math.round((Date.now() - (t.deletedAt || 0)) / 3600000));
+    return `<div class="trash-item"><div><b>${escapeHtml((t.paper && t.paper.title) || '未命名试卷')}</b><br/><span class="hint">${escapeHtml((t.paper && t.paper.subject) || '其他')} · 删除于 ${formatDate(t.deletedAt)} · 剩余 ${left} 小时</span></div><button class="btn btn-green btn-sm" data-action="restore-trash" data-id="${t.id}">恢复</button></div>`;
+  }).join('');
+}
+function clearTrash() {
+  if (!confirm('确定清空回收站吗？清空后无法再恢复。')) return;
+  db.trash = [];
+  saveDB();
+  renderTrash();
+  toast('回收站已清空');
+}
