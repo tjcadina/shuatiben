@@ -102,4 +102,10 @@ assert.strictEqual(parsed6.papers[0].questions[0].analysis, '紧跟解析', '紧
 assert.strictEqual(parsed6.papers[0].questions[1].answer, 'C', '第二题紧跟答案优先');
 assert.strictEqual(parsed6.papers[0].questions[1].analysis, '紧跟第二题', '第二题紧跟解析优先');
 
+// 答案 与 参考答案 等价
+const text7 = ['2026年考试《G》试题','1. 1+1=?','A. 1','B. 2','参考答案：B','2. 2+2=?','A. 2','B. 3','C. 4','答案：C'].join('\n');
+const parsed7 = ctx.__run('parseAuto(' + JSON.stringify(text7) + ', "f7")');
+assert.strictEqual(parsed7.papers[0].questions[0].answer, 'B', '参考答案=答案');
+assert.strictEqual(parsed7.papers[0].questions[1].answer, 'C', '答案=参考答案');
+
 console.log('PASS test-exam');
