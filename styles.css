@@ -498,3 +498,8 @@ input,textarea,select{font-family:inherit;color:inherit}
 .exam-row:last-child{border-bottom:none}
 .exam-label{flex:0 0 92px;color:var(--muted);font-weight:600}
 .exam-value{flex:1;min-width:0}
+
+/* 解析语音 */
+.analysis-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.analysis-speaker{width:28px;height:28px;flex:0 0 28px;font-size:14px}
+.analysis-text{line-height:1.8}

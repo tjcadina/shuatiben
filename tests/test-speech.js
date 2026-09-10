@@ -20,6 +20,13 @@ if (typeof spoken.onend === 'function') spoken.onend();
 if (typeof spoken.onerror === 'function') spoken.onerror();
 
 
+// 解析语音按钮：播报正确答案与解析内容
+ctx.__run("session.items[0].q.analysis = '苹果属于水果'; speakAnalysisCurrent();");
+const ana = ctx.window.speechSynthesis.spoken;
+assert.ok(ana && ana.text.includes('正确答案'), '解析播报含正确答案');
+assert.ok(ana.text.includes('苹果属于水果'), '解析播报含解析内容');
+if (typeof ana.onend === 'function') ana.onend();
+
 // 语音列表已就绪时应自动选中中文语音（utter.voice 被设置）
 ctx.window.speechSynthesis = {
   speaking: false,

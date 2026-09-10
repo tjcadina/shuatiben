@@ -1658,7 +1658,7 @@ function renderWrongBook() {
           </div>
           <details class="hint">
             <summary>查看答案与解析</summary>
-            <div style="margin-top:8px"><b>答案：</b>${escapeHtml(answerDisplay(w.question))}<br/><b>解析：</b>${escapeHtml(w.question.analysis || '（无解析）')}</div>
+            <div style="margin-top:8px"><b>答案：</b>${escapeHtml(answerDisplay(w.question))} <button type="button" class="speaker-btn analysis-speaker" data-action="speak-wrong-analysis" data-id="${w.id}" title="语音播报解析">🔊</button><br/><b>解析：</b>${escapeHtml(w.question.analysis || '（无解析）')}</div>
           </details>
           <div class="actions">
             <button class="btn btn-solid btn-sm" data-action="practice-wrong-one" data-id="${w.id}">重新作答</button>
@@ -1769,7 +1769,7 @@ function renderFavorites() {
           </div>
           <details class="hint">
             <summary>查看答案与解析</summary>
-            <div style="margin-top:8px"><b>答案：</b>${escapeHtml(answerDisplay(f.question))}<br/><b>解析：</b>${escapeHtml(f.question.analysis || '（无解析）')}</div>
+            <div style="margin-top:8px"><b>答案：</b>${escapeHtml(answerDisplay(f.question))} <button type="button" class="speaker-btn analysis-speaker" data-action="speak-fav-analysis" data-id="${f.id}" title="语音播报解析">🔊</button><br/><b>解析：</b>${escapeHtml(f.question.analysis || '（无解析）')}</div>
           </details>
           <div class="actions">
             <button class="btn btn-outline btn-sm" data-action="remove-fav" data-id="${f.id}">取消收藏</button>
@@ -1821,9 +1821,7 @@ function pickChineseVoiceFrom(voices) {
   return zh[0] || voices[0] || null;
 }
 
-function speakCurrentQuestion() {
-  if (!session) return;
-  const text = buildSpeechText(session.items[session.index].q);
+function speakText(text) {
   const synth = window.speechSynthesis;
   const Utter = window.SpeechSynthesisUtterance;
   if (!synth || typeof Utter === 'undefined') {
@@ -1882,6 +1880,22 @@ function speakCurrentQuestion() {
   } else {
     doSpeak(zh);
   }
+}
+
+function speakCurrentQuestion() {
+  if (!session) return;
+  speakText(buildSpeechText(session.items[session.index].q));
+}
+function speakQuestionAnalysis(q) {
+  if (!q) return;
+  const ans = (typeof answerDisplay === 'function') ? answerDisplay(q) : (q.answer || '');
+  const text = '正确答案：' + ans + '。解析：' + (q.analysis || '暂无解析');
+  speakText(text);
+}
+function speakAnalysisCurrent() {
+  if (!session) return;
+  const item = session.items[session.index];
+  if (item && item.q) speakQuestionAnalysis(item.q);
 }
 
 function goToQuestion(idx) {
@@ -2064,7 +2078,7 @@ function renderPractice() {
       <div class="result-title">${good ? '✅ 回答正确' : '❌ 回答错误'}</div>
       <div class="line"><span class="label">正确答案：</span>${escapeHtml(answerDisplay(q))}</div>
       <div class="line"><span class="label">你的答案：</span>${escapeHtml(st.userAnswer || '（未作答）')}</div>
-      ${q.analysis ? `<div class="analysis-box"><b>解析</b><br/>${escapeHtml(q.analysis)}</div>` : ''}
+      ${q.analysis ? `<div class="analysis-box"><div class="analysis-head"><b>解析</b><button type="button" class="speaker-btn analysis-speaker" data-action="speak-analysis" title="语音播报解析">🔊</button></div><div class="analysis-text">${escapeHtml(q.analysis)}</div></div>` : ''}
     </div>`;
   }
 
@@ -2917,6 +2931,9 @@ document.addEventListener('click', (e) => {
   else if (action === 'start-paper') startPaper(id, false);
   else if (action === 'jump-question') goToQuestion(Number(btn.dataset.index));
   else if (action === 'speak-question') speakCurrentQuestion();
+  else if (action === 'speak-analysis') speakAnalysisCurrent();
+  else if (action === 'speak-wrong-analysis') { const w = db.wrongBook.find((x) => x.id === id); if (w) speakQuestionAnalysis(w.question); }
+  else if (action === 'speak-fav-analysis') { const fv = (db.favorites || []).find((x) => x.id === id); if (fv) speakQuestionAnalysis(fv.question); }
   else if (action === 'edit-answer') editCurrentAnswer();
   else if (action === 'continue-practice') continuePractice();
   else if (action === 'toggle-fav') toggleFavoriteCurrentQuestion();
