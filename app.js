@@ -1031,13 +1031,32 @@ function extractInlineOptions(text) {
   return { question: text.slice(0, first.start).trim(), options };
 }
 
-function splitAnswerAnalysis(str) {
-  const re = /\s*(?:[【\[〖]?\s*["“]?\s*(?:解析|答案解析|试题解析|详解|分析)\s*["”]?\s*[】\]〗]?|Explanation|Analysis)\s*[:：]\s*/i;
-  const mm = str.match(re);
-  if (!mm) return { answer: str, analysis: '' };
-  const idx = str.search(re);
-  return { answer: str.slice(0, idx).trim(), analysis: str.slice(idx + mm[0].length).trim() };
+function extractAnswerAnalysis(text) {
+  const s = String(text == null ? '' : text);
+  const anaIdx = s.indexOf('解析');
+  let answer = '';
+  let analysis = '';
+  if (anaIdx >= 0) {
+    analysis = s.slice(anaIdx + 2).replace(/^[】\]〗]?\s*[:：]?\s*/, '').trim();
+    const beforeAna = s.slice(0, anaIdx);
+    const ansIdx = beforeAna.lastIndexOf('答案');
+    if (ansIdx >= 0) {
+      answer = beforeAna.slice(ansIdx + 2).replace(/^[】\]〗]?\s*[:：]?\s*/, '').trim();
+    }
+  } else {
+    const ansIdx = s.lastIndexOf('答案');
+    if (ansIdx >= 0) {
+      answer = s.slice(ansIdx + 2).replace(/^[】\]〗]?\s*[:：]?\s*/, '').trim();
+    }
+  }
+  // 答案解析 这种“答案”只用于提示“解析”，不当作答案
+  if (analysis && !answer) {
+    const before = s.slice(0, anaIdx);
+    if (/答案解析$/.test(before)) { /* ignore */ }
+  }
+  return { answer, analysis };
 }
+function splitAnswerAnalysis(str) { return extractAnswerAnalysis(str); }
 
 function isAnswerSectionHeader(line) {
   const t = line.replace(/^[一二三四五六七八九十]+[、.．]\s*/, '').replace(/[【\[\]〖〗"“”】]/g, '').trim();
@@ -1080,7 +1099,8 @@ function parseAnswerKeyLine(line, entries) {
     const hasMoreNumbers = /(?:^|\s)\d+\s*[.、．]/.test(rest);
     if (!hasMoreNumbers) {
       const sa = splitAnswerAnalysis(rest);
-      const answer = sa.answer.replace(/^[【\[〖]?\s*["“]?\s*(?:答案|正确答案|参考答案)\s*["”]?\s*[】\]〗]?\s*[:：]?\s*/i, '');
+      let answer = sa.answer;
+      if (!answer && !sa.analysis && rest.indexOf('答案') < 0 && rest.indexOf('解析') < 0) answer = rest.trim();
       addAnswerEntry(entries, num, answer, sa.analysis);
       return true;
     }
@@ -1095,13 +1115,13 @@ function parseAnswerKeyLine(line, entries) {
   }
   if (found) return true;
 
-  // 只要出现“解析”两个字，就按解析处理（解析、答案解析、【解析】、本题解析…）
-  const anaIdx = trimmed.indexOf('解析');
-  if (anaIdx >= 0) {
+  // 只要有“答案/解析”字样，就按包含式规则拆分为答案/解析（针对当前最后一条）
+  const ea = extractAnswerAnalysis(trimmed);
+  if (ea.answer || ea.analysis) {
     if (entries.length) {
       const last = entries[entries.length - 1];
-      const text = trimmed.slice(anaIdx + 2).replace(/^[】\]〗]?\s*[:：]?\s*/, '').trim();
-      if (text) last.analysis = last.analysis ? last.analysis + '\n' + text : text;
+      if (ea.answer && !last.answer) last.answer = ea.answer;
+      if (ea.analysis) last.analysis = last.analysis ? last.analysis + '\n' + ea.analysis : ea.analysis;
     }
     return true;
   }
@@ -1263,7 +1283,9 @@ function parseTextPapers(text, fallbackTitle) {
       } else {
         const sa = splitAnswerAnalysis(line);
         if (cur) {
-          cur.answer = sa.answer.replace(/^[【\[〖]?\s*["“]?\s*(?:答案|正确答案|参考答案)\s*["”]?\s*[】\]〗]?\s*[:：]?\s*/i, '');
+          let ans = sa.answer;
+          if (!ans && !sa.analysis && line.indexOf('答案') < 0 && line.indexOf('解析') < 0) ans = line.trim();
+          cur.answer = ans;
           if (sa.analysis) cur.analysis = sa.analysis;
         }
         pendingAnswerLabel = false;
@@ -1329,7 +1351,7 @@ function parseTextPapers(text, fallbackTitle) {
     }
 
     if (!cur) {
-      const metaLike = line.indexOf('解析') >= 0 || /^[【\[〖]?\s*["“]?\s*(?:答案|正确答案|参考答案|详解|Answer|Explanation|Analysis)/i.test(line);
+      const metaLike = line.indexOf('解析') >= 0 || line.indexOf('答案') >= 0 || /^[【\[〖]?\s*["“]?\s*(?:详解|Answer|Explanation|Analysis)/i.test(line);
       const optLike = /^([A-Ha-hＡ-Ｈａ-ｈ])\s*[.、．:：）]/.test(line);
       if (!paper.title && !paper.fallback && !metaLike && !optLike) paper.fallback = line;
       continue;
@@ -1346,18 +1368,10 @@ function parseTextPapers(text, fallbackTitle) {
       continue;
     }
 
-    m = line.match(/^[【\[〖]?\s*["“]?\s*(?:答案|正确答案|参考答案)\s*["”]?\s*[】\]〗]?\s*[:：]?\s*(.*)$/i);
-    if (m && m[1].trim().indexOf('解析') !== 0) {
-      const withAnalysis = splitAnswerAnalysis(m[1].trim());
-      cur.answer = withAnalysis.answer;
-      if (withAnalysis.analysis) cur.analysis = withAnalysis.analysis;
-      continue;
-    }
-
-    const anaIdx = line.indexOf('解析');
-    if (anaIdx >= 0) {
-      const text = line.slice(anaIdx + 2).replace(/^[】\]〗]?\s*[:：]?\s*/, '').trim();
-      cur.analysis = cur.analysis ? cur.analysis + '\n' + text : text;
+    const ea = extractAnswerAnalysis(line);
+    if (ea.answer || ea.analysis) {
+      if (ea.answer) cur.answer = ea.answer;
+      if (ea.analysis) cur.analysis = cur.analysis ? cur.analysis + '\n' + ea.analysis : ea.analysis;
       continue;
     }
     m = line.match(/^[【\[〖]?\s*["“]?\s*(?:详解|分析)\s*["”]?\s*[】\]〗]?\s*[:：]?\s*(.*)$/i);
