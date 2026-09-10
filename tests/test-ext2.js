@@ -73,4 +73,13 @@ assert.ok(q4[0].typeLabel.indexOf('案例') >= 0 && q4[0].type === 'text', '【�
 assert.ok(q4[1].typeLabel.indexOf('案例') >= 0 && q4[1].type === 'text', '案例题：无括号识别');
 assert.ok(q4[2].typeLabel.indexOf('材料') >= 0 && q4[2].type === 'text', '材料题：无括号识别');
 
+// 多题型：简答/辨析/论述/计算/翻译/写作等都识别并保留题型名
+const multi = ['2026年考试《M》试题','【简答题】简述光合作用的意义。','答案：要点','【辨析题】辨析以下观点。','答案：观点分析','【论述题】论述城市更新的意义。','答案：论述要点','【计算题】计算 1+1 的值。','答案：2','【翻译题】翻译下列句子。','答案：翻译内容','【写作题】请写一篇短文。','答案：写作要求'].join('\n');
+const pm = ctx.__run('parseAuto(' + JSON.stringify(multi) + ', "m")');
+const names = pm.papers[0].questions.map(q => ctx.__run('typeName(' + JSON.stringify(q) + ')'));
+for (const n of ['简答题','辨析题','论述题','计算题','翻译题','写作题']) {
+  assert.ok(names.includes(n), '识别并显示题型：' + n);
+}
+assert.ok(pm.papers[0].questions.every(q => q.type === 'text'), '主观题均为文字题');
+
 console.log('PASS test-ext2');

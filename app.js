@@ -918,7 +918,7 @@ function detectType(typeLabel, options, answer) {
   if (/多选|不定项|多项/.test(label)) type = 'multiple';
   else if (/单选/.test(label)) type = 'single';
   else if (/判断|是非|对错|True|False/i.test(label)) type = 'judge';
-  else if (/填空|简答|问答|主观|计算|名词解释|材料|案例|案例分析|论述|综合题|阅读|背景/.test(label)) type = 'text';
+  else if (/填空|简答|问答|主观|计算|名词解释|材料|案例|案例分析|论述|综合题|阅读|背景|辨析|改错|作图|编程|代码|翻译|写作|作文|实务|操作|连线|排序|匹配|列举|概述|评述/.test(label)) type = 'text';
   else if (hasOptions) type = 'single';
 
   if (hasOptions && type === 'single') {
@@ -982,6 +982,14 @@ function judgeAnswer(q, userAnswer) {
 }
 
 function typeName(q) {
+  const label = String((q && q.typeLabel) || '').trim().replace(/^[【\[（(]+|[】\]）)]+$/g, '');
+  if (label) {
+    if (/单选/.test(label)) return '单选题';
+    if (/多选|不定项/.test(label)) return '多选题';
+    if (/对错/.test(label)) return '对错题';
+    if (/判断|是非/.test(label)) return '判断题';
+    return label;
+  }
   const map = { single: '单选题', multiple: '多选题', judge: '判断题', text: '填空题/简答题' };
   return map[q.type] || q.type;
 }
