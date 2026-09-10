@@ -158,4 +158,8 @@ assert.strictEqual(fx.__run('session.index'), 0, '悬浮上一题可后退');
 fx.__run('clickFloatPrev();');
 assert.ok(fx.__run("document.querySelector('#toast').textContent").includes('第一题'), '第一题再上一题有提示');
 
+// 悬浮按钮：缓存版本号 + 位置越界校正
+assert.ok(html.includes('app.js?v='), 'JS 带版本号防缓存');
+assert.ok(appSrc.includes('clampFloatPos') && appSrc.includes('bindFloatResize'), '悬浮按钮位置会校正');
+
 console.log('PASS test-extra');

@@ -131,6 +131,19 @@ function prevQuestion() {
   if (session.index > 0) goToQuestion(session.index - 1);
   else toast('已经是第一题了');
 }
+function clampFloatPos(btn, key) {
+  if (!btn || !btn.style || btn.style.left === '' || btn.style.left === 'auto') return;
+  const l = parseFloat(btn.style.left), t = parseFloat(btn.style.top);
+  if (isNaN(l) || isNaN(t)) return;
+  const W = (document.documentElement && document.documentElement.clientWidth) || window.innerWidth || 400;
+  const H = (document.documentElement && document.documentElement.clientHeight) || window.innerHeight || 700;
+  const cl = Math.min(Math.max(l, 0), Math.max(W - 110, 0));
+  const ct = Math.min(Math.max(t, 0), Math.max(H - 76, 0));
+  btn.style.left = cl + 'px';
+  btn.style.top = ct + 'px';
+  btn.style.right = 'auto';
+  if ((cl !== l || ct !== t) && key) { try { localStorage.setItem(key, JSON.stringify({ l: cl, t: ct })); } catch (e) {} }
+}
 function restoreFloatPos(btn, key) {
   try {
     const raw = localStorage.getItem(key);
@@ -140,8 +153,19 @@ function restoreFloatPos(btn, key) {
       btn.style.left = p.l + 'px';
       btn.style.top = p.t + 'px';
       btn.style.right = 'auto';
+      clampFloatPos(btn, key);
     }
   } catch (e) {}
+}
+function bindFloatResize() {
+  if (typeof window.addEventListener !== 'function') return;
+  const onResize = () => {
+    clampFloatPos($('#floatNext'), 'shuatiben_floatpos_next');
+    clampFloatPos($('#floatPrev'), 'shuatiben_floatpos_prev');
+  };
+  window.addEventListener('resize', onResize);
+  window.addEventListener('orientationchange', onResize);
+  onResize();
 }
 function updateFloatNext() {
   const showBase = isFloatNext() && session && currentView === 'practice';
@@ -3303,6 +3327,7 @@ updateBadge();
 initCloud();
 renderAccountArea();
 bindPracticeSwipe();
+bindFloatResize();
 tryImportFromHash();
 
 
