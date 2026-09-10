@@ -64,4 +64,13 @@ const t3 = ['2026年考试《T3》试题','【材料题】','1）阅读材料并
 const parsedT3 = ctx.__run('parseAuto(' + JSON.stringify(t3) + ', "t3")');
 assert.strictEqual(parsedT3.papers[0].questions[0].type, 'text', '题型标题单独一行的材料题');
 
+// 案例题 / 材料题 多种写法
+const t4 = ['2026年考试《T4》试题','【案例题】某工程项目案例分析如下……','答案：见解析','解析：案例分析要点','案例题：第二题案例描述……','答案：要点二','材料题：阅读下列材料回答问题……','答案：要点三'].join('\n');
+const parsedT4 = ctx.__run('parseAuto(' + JSON.stringify(t4) + ', "t4")');
+const q4 = parsedT4.papers[0].questions;
+assert.strictEqual(q4.length, 3, '案例/材料题各成题');
+assert.ok(q4[0].typeLabel.indexOf('案例') >= 0 && q4[0].type === 'text', '【案例题】识别');
+assert.ok(q4[1].typeLabel.indexOf('案例') >= 0 && q4[1].type === 'text', '案例题：无括号识别');
+assert.ok(q4[2].typeLabel.indexOf('材料') >= 0 && q4[2].type === 'text', '材料题：无括号识别');
+
 console.log('PASS test-ext2');

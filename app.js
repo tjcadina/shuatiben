@@ -918,7 +918,7 @@ function detectType(typeLabel, options, answer) {
   if (/多选|不定项|多项/.test(label)) type = 'multiple';
   else if (/单选/.test(label)) type = 'single';
   else if (/判断|是非|对错|True|False/i.test(label)) type = 'judge';
-  else if (/填空|简答|问答|主观|计算|名词解释|材料|案例分析|论述|综合题/.test(label)) type = 'text';
+  else if (/填空|简答|问答|主观|计算|名词解释|材料|案例|案例分析|论述|综合题|阅读|背景/.test(label)) type = 'text';
   else if (hasOptions) type = 'single';
 
   if (hasOptions && type === 'single') {
@@ -1379,10 +1379,20 @@ function parseTextPapers(text, fallbackTitle) {
 
     let rest = line;
     let typeLabel = '';
+    m = line.match(/^(案例题|材料题|问答题|简答题|判断题|对错题|多选题|单选题|不定项选择题|填空题|论述题|综合题|案例分析题)\s*[:：]\s*(.*)$/);
+    if (m) {
+      typeLabel = m[1].trim();
+      rest = m[2].trim();
+      if (!rest) { pendingTypeLabel = typeLabel; typeLabel = ''; continue; }
+      flushQuestion();
+      cur = { num: null, typeLabel: typeLabel, question: rest, options: [], answer: '', analysis: '', subject: '' };
+      typeLabel = '';
+      continue;
+    }
     const tlOnly = line.match(/^(?:【([^】]+)】|\[([^\]]+)\]|（([^）]+)）)\s*$/);
     if (tlOnly) {
       const labOnly = (tlOnly[1] || tlOnly[2] || tlOnly[3]).trim();
-      if (/判断|是非|对错|多选|单选|不定项|填空|简答|问答|主观|计算|名词解释|材料|案例分析|论述|综合题/.test(labOnly)) {
+      if (/判断|是非|对错|多选|单选|不定项|填空|简答|问答|主观|计算|名词解释|材料|案例|案例分析|论述|综合题|阅读|背景/.test(labOnly)) {
         pendingTypeLabel = labOnly;
         continue;
       }
