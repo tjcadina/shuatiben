@@ -126,17 +126,33 @@ function setFloatNext(on) {
   updateFloatNext();
   if (currentView === 'practice') renderPractice();
 }
-function updateFloatNext() {
-  const btn = $('#floatNext');
-  if (!btn) return;
-  const show = isFloatNext() && session && currentView === 'practice' &&
-    session.answers[session.index] && session.answers[session.index].submitted &&
-    session.index + 1 < session.items.length;
-  btn.classList.toggle('hidden', !show);
+function prevQuestion() {
+  if (!session) return;
+  if (session.index > 0) goToQuestion(session.index - 1);
 }
-function makeFloatDraggable() {
-  const btn = $('#floatNext');
+function restoreFloatPos(btn, key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    const p = JSON.parse(raw);
+    if (p && typeof p.l === 'number' && typeof p.t === 'number') {
+      btn.style.left = p.l + 'px';
+      btn.style.top = p.t + 'px';
+      btn.style.right = 'auto';
+    }
+  } catch (e) {}
+}
+function updateFloatNext() {
+  const showBase = isFloatNext() && session && currentView === 'practice';
+  const next = $('#floatNext');
+  if (next) next.classList.toggle('hidden', !(showBase && session.answers[session.index] && session.answers[session.index].submitted && session.index + 1 < session.items.length));
+  const prev = $('#floatPrev');
+  if (prev) prev.classList.toggle('hidden', !(showBase && session.index > 0));
+}
+function makeFloatDraggable(sel, key) {
+  const btn = $(sel);
   if (!btn || typeof btn.addEventListener !== 'function' || typeof window.addEventListener !== 'function') return;
+  restoreFloatPos(btn, key);
   let sx = 0, sy = 0, ox = 0, oy = 0, dragging = false, moved = false;
   const down = (e) => {
     const p = (e.touches && e.touches[0]) || e;
@@ -153,14 +169,25 @@ function makeFloatDraggable() {
     if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
     const W = (document.documentElement && document.documentElement.clientWidth) || window.innerWidth || 400;
     const H = (document.documentElement && document.documentElement.clientHeight) || window.innerHeight || 700;
-    const left = Math.min(Math.max(ox + dx, 0), Math.max(W - 96, 0));
+    const left = Math.min(Math.max(ox + dx, 0), Math.max(W - 110, 0));
     const top = Math.min(Math.max(oy + dy, 0), Math.max(H - 76, 0));
     btn.style.left = left + 'px';
     btn.style.top = top + 'px';
     btn.style.right = 'auto';
     try { e.preventDefault(); } catch (err) {}
   };
-  const up = () => { dragging = false; if (moved) window.__floatDragMoved = true; };
+  const up = () => {
+    if (!dragging) return;
+    dragging = false;
+    if (moved) {
+      window.__floatDragMoved = true;
+      try {
+        const l = parseFloat(btn.style.left);
+        const t = parseFloat(btn.style.top);
+        if (!isNaN(l) && !isNaN(t)) localStorage.setItem(key, JSON.stringify({ l: l, t: t }));
+      } catch (e) {}
+    }
+  };
   btn.addEventListener('pointerdown', down);
   window.addEventListener('pointermove', move, { passive: false });
   window.addEventListener('pointerup', up);
@@ -861,7 +888,7 @@ function finalizeQuestion(raw, index) {
   } else if (type === 'judge') {
     answer = normalizeJudge(answer);
   } else if (type === 'text') {
-    answer = answer.replace(/^(?:答案|正确答案|参考答案)\s*[:：]?\s*/i, '');
+    answer = answer.replace(/^[【\[]?\s*["“]?\s*(?:答案|正确答案|参考答案)\s*["”]?\s*[】\]]?\s*[:：]?\s*/i, '');
   }
 
   return {
@@ -968,7 +995,7 @@ function extractInlineOptions(text) {
 }
 
 function splitAnswerAnalysis(str) {
-  const re = /\s*(?:【?\s*(?:解析|答案解析|试题解析|详解|分析)\s*】?|Explanation|Analysis)\s*[:：]\s*/i;
+  const re = /\s*(?:[【\[]?\s*["“]?\s*(?:解析|答案解析|试题解析|详解|分析)\s*["”]?\s*[】\]]?|Explanation|Analysis)\s*[:：]\s*/i;
   const mm = str.match(re);
   if (!mm) return { answer: str, analysis: '' };
   const idx = str.search(re);
@@ -976,8 +1003,8 @@ function splitAnswerAnalysis(str) {
 }
 
 function isAnswerSectionHeader(line) {
-  const t = line.replace(/^[一二三四五六七八九十]+[、.．]\s*/, '').trim();
-  return /^(?:参考答案|答案与解析|答案解析|试题答案|答案详解|参考答案及解析|参考答案与解析)(?:[:：]?\s*)$/.test(t)
+  const t = line.replace(/^[一二三四五六七八九十]+[、.．]\s*/, '').replace(/[【\[\]"“”】]/g, '').trim();
+  return /^(?:参考答案|答案与解析|答案解析|试题答案|答案详解|参考答案及解析|参考答案与解析|答案及解析|试题答案解析)(?:[:：]?\s*)$/.test(t)
     || /^答案[:：]?\s*$/.test(t);
 }
 
@@ -996,7 +1023,7 @@ function parseAnswerKeyLine(line, entries) {
   const trimmed = String(line || '').trim();
   if (!trimmed) return false;
 
-  const analysisOnly = trimmed.match(/^(?:解析|答案解析|试题解析|详解|分析)\s*[:：]\s*(.+)$/i);
+  const analysisOnly = trimmed.match(/^[【\[]?\s*["“]?\s*(?:解析|答案解析|试题解析|详解|分析)\s*["”]?\s*[】\]]?\s*[:：]?\s*(.+)$/i);
   if (analysisOnly) {
     if (entries.length) {
       const last = entries[entries.length - 1];
@@ -1025,7 +1052,7 @@ function parseAnswerKeyLine(line, entries) {
     const hasMoreNumbers = /(?:^|\s)\d+\s*[.、．]/.test(rest);
     if (!hasMoreNumbers) {
       const sa = splitAnswerAnalysis(rest);
-      const answer = sa.answer.replace(/^(?:答案|正确答案|参考答案)\s*[:：]?\s*/i, '');
+      const answer = sa.answer.replace(/^[【\[]?\s*["“]?\s*(?:答案|正确答案|参考答案)\s*["”]?\s*[】\]]?\s*[:：]?\s*/i, '');
       addAnswerEntry(entries, num, answer, sa.analysis);
       return true;
     }
@@ -1052,7 +1079,7 @@ function normalizeAnswerForQuestion(q, rawAnswer) {
     return normalizeJudge(s);
   }
   if (q.type === 'judge') return normalizeJudge(s);
-  return s.replace(/^(?:答案|正确答案|参考答案)\s*[:：]?\s*/i, '');
+  return s.replace(/^[【\[]?\s*["“]?\s*(?:答案|正确答案|参考答案)\s*["”]?\s*[】\]]?\s*[:：]?\s*/i, '');
 }
 
 function applyAnswerEntries(questions, nums, entries) {
@@ -1084,7 +1111,7 @@ function parseTextPaper(text, fallbackTitle) {
 function parseTextPapers(text, fallbackTitle) {
   const lines = String(text || '').split(/\r?\n/);
   const papers = [];
-  let paper = { title: '', subject: '', fallback: '', answerEntries: [] };
+  let paper = { title: '', subject: '', fallback: '', answerEntries: [], meta: {} };
   let blocks = [];
   let cur = null;
   let answerMode = false;
@@ -1096,7 +1123,7 @@ function parseTextPapers(text, fallbackTitle) {
     if (/^([A-Ha-hＡ-Ｈａ-ｈ])\s*[.、．:：）]/.test(l)) return false;
     if (/^(?:【?\s*(?:答案|正确答案|参考答案)\s*】?|Answer)\s*[:：]?/i.test(l)) return false;
     if (/^(?:【?\s*(?:解析|答案解析|试题解析|详解|分析)\s*】?|Explanation|Analysis)\s*[:：]?/i.test(l)) return false;
-    return /试卷|模拟卷|测试卷|真题卷|押题卷|模拟题|真题|预测题|期中|期末|月考|入学|摸底|单元测试|综合测试|练习卷|测验|考试|第[一二三四五六七八九十\d]+套/.test(l);
+    return /试卷|模拟卷|测试卷|真题卷|押题卷|模拟题|真题|预测题|期中|期末|月考|入学|摸底|单元测试|综合测试|练习卷|测验|考试|试题卷|考试.{0,16}试题|第[一二三四五六七八九十\d]+套/.test(l);
   };
 
   const flushQuestion = () => {
@@ -1120,6 +1147,7 @@ function parseTextPapers(text, fallbackTitle) {
     return {
       title: paper.title || paper.fallback || fallbackTitle || `试卷 ${papers.length + 1}`,
       subject,
+      examMeta: paper.meta || {},
       questions,
       warnings
     };
@@ -1131,7 +1159,7 @@ function parseTextPapers(text, fallbackTitle) {
       const built = buildPaper();
       if (built) papers.push(built);
       blocks = [];
-      paper = { title: '', subject: '', fallback: '', answerEntries: [] };
+      paper = { title: '', subject: '', fallback: '', answerEntries: [], meta: {} };
     }
     answerMode = false;
     paper.title = title;
@@ -1162,6 +1190,16 @@ function parseTextPapers(text, fallbackTitle) {
       paper.subject = m[1].trim();
       continue;
     }
+    m = line.match(/^(?:考试时间|答题时间|时间)\s*[:：]\s*(.+)$/);
+    if (m) { paper.meta = paper.meta || {}; paper.meta.time = m[1].trim(); continue; }
+    m = line.match(/^(?:试卷满分|满分|总分)\s*[:：]\s*(.+)$/);
+    if (m) { paper.meta = paper.meta || {}; paper.meta.fullScore = m[1].trim(); continue; }
+    m = line.match(/^(?:合格标准|合格线|及格线|及格标准)\s*[:：]\s*(.+)$/);
+    if (m) { paper.meta = paper.meta || {}; paper.meta.passLine = m[1].trim(); continue; }
+    m = line.match(/^(?:命题依据|命题依据说明|命题范围)\s*[:：]\s*(.+)$/);
+    if (m) { paper.meta = paper.meta || {}; paper.meta.basis = m[1].trim(); continue; }
+    m = line.match(/^(?:考试说明|答题说明|考生须知)\s*[:：]\s*(.+)$/);
+    if (m) { paper.meta = paper.meta || {}; paper.meta.instructions = m[1].trim(); continue; }
 
     if (isAnswerSectionHeader(line) && (blocks.length || cur)) {
       flushQuestion();
@@ -1213,7 +1251,7 @@ function parseTextPapers(text, fallbackTitle) {
     }
 
     if (!cur) {
-      const metaLike = /^(?:答案|正确答案|参考答案|解析|答案解析|试题解析|详解|Answer|Explanation|Analysis)/i.test(line);
+      const metaLike = /^[【\[]?\s*["“]?\s*(?:答案|正确答案|参考答案|解析|答案解析|试题解析|详解|Answer|Explanation|Analysis)/i.test(line);
       const optLike = /^([A-Ha-hＡ-Ｈａ-ｈ])\s*[.、．:：）]/.test(line);
       if (!paper.title && !paper.fallback && !metaLike && !optLike) paper.fallback = line;
       continue;
@@ -1230,7 +1268,7 @@ function parseTextPapers(text, fallbackTitle) {
       continue;
     }
 
-    m = line.match(/^(?:【?\s*(?:答案|正确答案|参考答案)\s*】?|Answer)\s*[:：]?\s*(.*)$/i);
+    m = line.match(/^[【\[]?\s*["“]?\s*(?:答案|正确答案|参考答案)\s*["”]?\s*[】\]]?\s*[:：]?\s*(.*)$/i);
     if (m) {
       const withAnalysis = splitAnswerAnalysis(m[1].trim());
       cur.answer = withAnalysis.answer;
@@ -1238,7 +1276,7 @@ function parseTextPapers(text, fallbackTitle) {
       continue;
     }
 
-    m = line.match(/^(?:【?\s*(?:解析|答案解析|试题解析|详解|分析)\s*】?|Explanation|Analysis)\s*[:：]?\s*(.*)$/i);
+    m = line.match(/^[【\[]?\s*["“]?\s*(?:解析|答案解析|试题解析|详解|分析)\s*["”]?\s*[】\]]?\s*[:：]?\s*(.*)$/i);
     if (m) {
       cur.analysis = m[1].trim();
       continue;
@@ -1334,6 +1372,7 @@ function parseJSONPapers(text, fallbackTitle) {
     return {
       title,
       subject: subject || extractExamSubject(titleSrc) || detectSubjectName(titleSrc) || classifySubject(allText || text || titleSrc),
+      examMeta: (src && src.examMeta) || {},
       questions,
       warnings
     };
@@ -1556,7 +1595,7 @@ function renderPapers() {
         <h4>${escapeHtml(p.title)}</h4>
         <div class="meta">${last}<span>💯 满分100 · 每题约${Math.round(100 / Math.max(1, p.questions.length))} 分</span></div>
         <div class="card-actions">
-          <button class="btn btn-solid" data-action="start-paper" data-id="${p.id}">${mainLabel}</button>
+          <button class="btn btn-solid" data-action="${hasProgress ? 'start-paper' : 'start-paper-info'}" data-id="${p.id}">${mainLabel}</button>
           ${showRedo ? `<button class="btn btn-outline btn-sm" data-action="restart-paper" data-id="${p.id}">${redoLabel}</button>` : ''}
           ${wrongCount ? `<button class="btn btn-outline" data-action="start-paper-wrong" data-id="${p.id}">错题重练</button>` : ''}
           <button class="btn btn-outline btn-sm" data-action="copy-paper" data-id="${p.id}" title="复制本卷数据（可粘贴到其它设备导入）">📋 复制本卷</button>
@@ -2060,7 +2099,7 @@ function renderPractice() {
           <span class="tag">${typeName(q)}</span>
           ${session.subject ? `<span class="tag tag-subject">${escapeHtml(session.subject)}</span>` : ''}
         </div>
-        <p class="question-text">${escapeHtml(q.question)}</p>
+        <p class="question-text">${escapeHtml(q.question)} <span class="q-score">（本题 ${pts} 分）</span></p>
         ${answerUI}
         ${submitted ? '' : `<div class="action-row">${action}</div>`}
         ${resultPanel}
@@ -2560,6 +2599,37 @@ function saveEditPaper() {
   toast('已保存试卷修改');
 }
 
+let pendingExamPaperId = null;
+function closeExamInfo() {
+  $('#examOverlay').classList.add('hidden');
+  pendingExamPaperId = null;
+}
+function showExamInfo(paperId) {
+  const p = db.papers.find((x) => x.id === paperId);
+  if (!p) return;
+  pendingExamPaperId = paperId;
+  const meta = p.examMeta || {};
+  const scoring = buildScoring(p.questions.map((q) => ({ q })));
+  const typeRows = Object.keys(scoring.perType).map((t) => `${t} ${scoring.perType[t]} 道 · 共 ${scoring.perTypeScore[t]} 分（每题 ${Math.round(scoring.perTypeScore[t] / scoring.perType[t])} 分）`).join('<br/>');
+  const suggest = meta.time || (Math.max(10, Math.round((p.questions.length * 1.2) / 5) * 5) + ' 分钟');
+  const rows = [
+    ['考试说明', meta.instructions || '请独立完成本次练习，作答后系统即时判分并给出答案解析。'],
+    ['考试科目', p.subject || '其他'],
+    ['考试时间', suggest],
+    ['试卷满分', meta.fullScore || ('100 分（共 ' + p.questions.length + ' 题）')],
+    ['合格标准', meta.passLine || '60 分（60%）'],
+    ['题型与计分', typeRows || '—'],
+    ['命题依据说明', meta.basis || '依据本试卷内容命题，用于专项练习与自测。']
+  ];
+  $('#examInfoBody').innerHTML = '<div class="exam-title">' + escapeHtml(p.title) + '</div>' + rows.map((r) => `<div class="exam-row"><span class="exam-label">${r[0]}</span><span class="exam-value">${r[1]}</span></div>`).join('');
+  $('#examOverlay').classList.remove('hidden');
+}
+function startExamNow() {
+  const id = pendingExamPaperId;
+  closeExamInfo();
+  if (id) startPaper(id, false);
+}
+
 function isWeChat() {
   try { return /MicroMessenger/i.test(navigator.userAgent || ''); } catch (e) { return false; }
 }
@@ -2842,6 +2912,7 @@ document.addEventListener('click', (e) => {
   if (action === 'open-upload') openUploadModal();
   else if (action === 'load-sample') loadSample();
   else if (action === 'copy-paper') copyPaperData(id);
+  else if (action === 'start-paper-info') showExamInfo(id);
   else if (action === 'clear-subject-filter') { paperSubjectFilter = 'all'; renderPapers(); }
   else if (action === 'start-paper') startPaper(id, false);
   else if (action === 'jump-question') goToQuestion(Number(btn.dataset.index));
@@ -3097,6 +3168,10 @@ $('#copyPromptBtn').addEventListener('click', () => {
   }
 });
 
+$('#examClose').addEventListener('click', closeExamInfo);
+$('#examCancel').addEventListener('click', closeExamInfo);
+$('#examStart').addEventListener('click', startExamNow);
+$('#examOverlay').addEventListener('click', (e) => { if (e.target.id === 'examOverlay') closeExamInfo(); });
 $('#openBackupBtn').addEventListener('click', openBackupModal);
 $('#backupClose').addEventListener('click', closeBackupModal);
 $('#backupDownloadBtn').addEventListener('click', downloadBackup);
@@ -3109,7 +3184,9 @@ $$('.theme-btn').forEach((btn) => {
 });
 
 $('#floatNext').addEventListener('click', () => { if (window.__floatDragMoved) { window.__floatDragMoved = false; return; } nextQuestion(); });
-makeFloatDraggable();
+$('#floatPrev').addEventListener('click', () => { if (window.__floatDragMoved) { window.__floatDragMoved = false; return; } prevQuestion(); });
+makeFloatDraggable('#floatNext', 'shuatiben_floatpos_next');
+makeFloatDraggable('#floatPrev', 'shuatiben_floatpos_prev');
 $('#floatNextToggle').addEventListener('change', (e) => setFloatNext(e.target.checked));
 $('#menuToggle').addEventListener('click', () => {
   const sb = document.querySelector('.sidebar');

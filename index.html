@@ -168,6 +168,22 @@
   </div>
 
 
+  <div id="examOverlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>考试须知</h3>
+        <button class="modal-close" id="examClose">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="examInfoBody"></div>
+        <div class="modal-actions">
+          <button id="examCancel" class="btn btn-outline">返回</button>
+          <button id="examStart" class="btn btn-solid">开始作答</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="backupOverlay" class="modal-overlay hidden">
     <div class="modal">
       <div class="modal-head">
@@ -231,7 +247,8 @@
     </div>
   </div>
 
-  <div id="floatNext" class="float-next hidden">下一题 ➤</div>
+  <div id="floatPrev" class="float-btn float-prev hidden">◀ 上一题</div>
+  <div id="floatNext" class="float-btn float-next hidden">下一题 ➤</div>
 
   <div id="toast" class="toast"></div>
 

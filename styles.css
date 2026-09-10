@@ -422,16 +422,19 @@ input,textarea,select{font-family:inherit;color:inherit}
 .subject-group details .subject-head .caret{display:inline-block;transition:transform .15s ease;font-size:11px;margin-left:2px;color:var(--muted)}
 
 /* 悬浮“下一题”按钮 */
-.float-next{
-  position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom, 0px));z-index:40;
+.float-btn{
+  position:fixed;z-index:40;
   display:inline-flex;align-items:center;gap:6px;padding:12px 18px;border-radius:999px;
   background:rgba(104,104,224,.72);color:#fff;font-weight:700;font-size:14px;
   backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
   box-shadow:0 6px 16px rgba(91,91,214,.25);border:1px solid rgba(255,255,255,.25);cursor:grab;touch-action:none;user-select:none;
 }
-.float-next:active{cursor:grabbing}
-.float-next:hover{transform:translateY(-1px)}
-.float-next.hidden{display:none}
+.float-right,.float-next{right:16px;bottom:calc(20px + env(safe-area-inset-bottom, 0px))}
+.float-prev{left:16px;bottom:calc(20px + env(safe-area-inset-bottom, 0px))}
+.float-btn:active{cursor:grabbing}
+.float-btn:hover{transform:translateY(-1px)}
+.float-btn.hidden{display:none}
+.q-score{color:var(--primary);font-size:13px;font-weight:700;white-space:nowrap}
 
 /* 显示设置行内小开关 */
 .dp-check{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#dfe1ff;flex:1;min-width:0}
@@ -488,3 +491,10 @@ input,textarea,select{font-family:inherit;color:inherit}
 .seg-btns .btn{flex:0 0 auto}
 
 
+
+/* 考试须知 */
+.exam-title{font-size:17px;font-weight:800;margin-bottom:12px;color:var(--text)}
+.exam-row{display:flex;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13.5px;line-height:1.7}
+.exam-row:last-child{border-bottom:none}
+.exam-label{flex:0 0 92px;color:var(--muted);font-weight:600}
+.exam-value{flex:1;min-width:0}

@@ -1,0 +1,72 @@
+﻿const assert = require('assert');
+const { loadApp } = require('./harness');
+
+const KEY = 'shuatiben_v1';
+function paperObj(id, title, questions) {
+  return { id, title, subject: '数学', createdAt: 1, lastResult: null, examMeta: { time: '90 分钟', fullScore: '100 分', passLine: '60 分', basis: '历年真题' }, questions };
+}
+const q = (id, ans) => ({ id, question: 'Q' + id, options: ['A', 'B', 'C', 'D'], answer: ans || 'A', analysis: '', type: 'single', typeLabel: '单选题', subject: '数学' });
+const storage = {};
+storage[KEY] = JSON.stringify({ papers: [paperObj('p1', '须知卷', [q('1'), q('2'), q('3')])], wrongBook: [], progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites: [] });
+const ctx = loadApp(storage);
+
+// 1) 上一题悬浮按钮 + 上一题函数
+assert.strictEqual(ctx.__run("typeof prevQuestion === 'function'"), true, '含上一题函数');
+ctx.__run("startPaper('p1', false); goToQuestion(1);");
+assert.strictEqual(ctx.__run('session.index'), 1);
+ctx.__run('prevQuestion();');
+assert.strictEqual(ctx.__run('session.index'), 0, '悬浮上一题可回到上一题');
+
+// 6) 每题分值显示在题目后面
+ctx.__run('goToQuestion(1);');
+const ph = ctx.__run("document.querySelector('#view-practice').innerHTML");
+assert.ok(ph.includes('（本题') && ph.includes('分）'), '题目后显示本题分值');
+
+// 5) 考试须知：标题/字段齐全，开始后进入答题
+ctx.__run("showExamInfo('p1');");
+const info = ctx.__run("document.querySelector('#examInfoBody').innerHTML");
+for (const label of ['考试说明', '考试科目', '考试时间', '试卷满分', '合格标准', '题型与计分', '命题依据说明']) {
+  assert.ok(info.includes(label), '须知含：' + label);
+}
+assert.ok(info.includes('90 分钟') && info.includes('历年真题'), '须知使用试卷元信息');
+ctx.__run('startExamNow();');
+assert.strictEqual(ctx.__run('currentView'), 'practice', '须知页可开始作答');
+
+// 2/3/4) 解析识别：答案/解析标签容错 + 后置答案按题号对应 + 考试…试题切分
+const text = [
+  '2026年注册城乡规划师考试《城乡规划管理与法规》模拟试题',
+  '考试时间：90分钟',
+  '满分：100分',
+  '合格标准：60分',
+  '1. 1+1=?',
+  'A. 1',
+  'B. 2',
+  '"答案"：B',
+  '【解析】基础加法',
+  '2. 2+2=?',
+  'A. 2',
+  'B. 3',
+  'C. 4',
+  'D. 5',
+  '参考答案及解析',
+  '1. B',
+  '解析：第一题解析',
+  '2. C',
+  '【解析】第二题解析',
+  '2026年注册城乡规划师考试《城乡规划实务》试题',
+  '1. 3+3=?',
+  'A. 5',
+  'B. 6',
+  '答案：B',
+  '解析：加法'
+].join('\n');
+const parsed = ctx.__run('parseAuto(' + JSON.stringify(text) + ', "上传文件名")');
+assert.strictEqual(parsed.papers.length, 2, '“考试…试题”识别为下一套试卷');
+assert.strictEqual(parsed.papers[0].questions[0].answer, 'B', '“答案”带引号可识别');
+assert.ok(parsed.papers[0].questions[0].analysis.includes('基础加法'), '【解析】可识别');
+assert.strictEqual(parsed.papers[0].questions[1].answer, 'C', '后置答案按题号对应');
+assert.ok(parsed.papers[0].questions[1].analysis.includes('第二题解析'), '后置解析按题号对应');
+assert.strictEqual(parsed.papers[0].examMeta.time, '90分钟', '解析考试时间元信息');
+assert.strictEqual(parsed.papers[1].title.includes('城乡规划实务'), true, '第二套试卷标题正确');
+
+console.log('PASS test-exam');
