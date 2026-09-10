@@ -121,4 +121,10 @@ assert.strictEqual(parsed9.papers[0].questions.length, 2, '第N题识别为题�
 assert.strictEqual(parsed9.papers[0].questions[0].answer, 'B', '第1题对应答案B');
 assert.strictEqual(parsed9.papers[0].questions[1].answer, 'C', '第2题对应答案C');
 
+// 智能预处理：全角转半角 + 去掉页码等噪音
+const raw9 = '2026年考试《J》试题\n1．1+1=?（　）\nＡ．1\nＢ．2\n参考答案：Ｂ\n第 1 页 共 3 页\n';
+const parsedRaw = ctx.__run('parseAuto(' + JSON.stringify(raw9) + ', "j9")');
+assert.strictEqual(parsedRaw.papers[0].questions[0].answer, 'B', '全角标点/字母可识别');
+assert.strictEqual(parsedRaw.papers[0].questions[0].options.length, 2, '全角选项可识别');
+
 console.log('PASS test-exam');

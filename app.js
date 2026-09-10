@@ -1189,7 +1189,7 @@ function parseTextPaper(text, fallbackTitle) {
 }
 
 function parseTextPapers(text, fallbackTitle) {
-  const lines = String(text || '').split(/\r?\n/);
+  const lines = normalizeExamText(text).split('\n');
   const papers = [];
   let paper = { title: '', subject: '', fallback: '', answerEntries: [], meta: {} };
   let blocks = [];
@@ -1500,6 +1500,22 @@ function parseJSONPapers(text, fallbackTitle) {
     return [{ title: fallbackTitle || '未命名试卷', subject: '其他', questions: [], warnings: ['未解析到任何题目'] }];
   }
   return papers;
+}
+
+function normalizeExamText(text) {
+  let t = String(text == null ? '' : text).replace(/\r\n?/g, '\n');
+  // 全角英文字母/数字/标点转半角（Ａ-Ｈ、：、．、（）等）
+  t = t.replace(/[\uFF01-\uFF5E]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+  const out = [];
+  for (let raw of t.split('\n')) {
+    let s = raw.trim().replace(/[ \t]+/g, ' ');
+    // 去掉分隔线、页眉页脚、页码、网址等噪音
+    if (/^[—\-_.=~*]{3,}$/.test(s)) continue;
+    if (/^(?:第\s*\d+\s*页(?:\s*共\s*\d+\s*页)?|共\s*\d+\s*页|Page\s*\d+|\d+\s*\/\s*\d+)$/i.test(s)) continue;
+    if (/^(?:file:\/\/|https?:\/\/|www\.)/i.test(s)) continue;
+    if (s) out.push(s);
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
 function parseAuto(text, fallbackTitle) {
