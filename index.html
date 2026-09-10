@@ -26,6 +26,7 @@
         <button class="nav-btn active" data-view="papers">📚 试卷库</button>
         <button class="nav-btn" data-view="wrong">📕 错题集 <span id="wrongBadge" class="badge">0</span></button>
         <button class="nav-btn" data-view="fav">⭐ 收藏题目 <span id="favBadge" class="badge">0</span></button>
+        <button class="nav-btn" data-view="notes">📒 笔记本 <span id="notesBadge" class="badge">0</span></button>
       </nav>
       <div class="sidebar-footer">
         <details class="ft-panel" id="transferPanel">
@@ -62,6 +63,14 @@
                   <label class="dp-check"><input type="checkbox" id="floatNextToggle" /> 下一题悬浮按钮</label>
                 </div>
                 <div class="dp-line">
+                  <span class="dp-label">语速</span>
+                  <select id="speechRateSelect" class="dp-select">
+                    <option value="0.8">慢</option>
+                    <option value="1.0">正常</option>
+                    <option value="1.35">快速</option>
+                  </select>
+                </div>
+                <div class="dp-line">
                   <span class="dp-label">字体</span>
                   <select id="fontFamilySelect" class="dp-select" title="切换正文字体">
                     <option value="default">系统默认</option>
@@ -89,6 +98,7 @@
         <section id="view-papers" class="view active"></section>
         <section id="view-wrong" class="view"></section>
         <section id="view-fav" class="view"></section>
+        <section id="view-notes" class="view"></section>
         <section id="view-practice" class="view"></section>
         <section id="view-report" class="view"></section>
       </div>
@@ -263,7 +273,7 @@
   </div>
 
   <div id="floatPrev" class="float-btn float-prev hidden">◀ 上一题</div>
-  <div id="floatNext" class="float-btn float-next hidden">下一题 ➤</div>
+  <div id="floatBack" class="float-btn float-back hidden">📚 返回试卷库</div>
 
   <div id="toast" class="toast"></div>
 

@@ -100,6 +100,17 @@ const FONT_FAMILIES = {
 };
 const DISPLAY_OPEN_KEY = 'shuatiben_displayopen';
 const FLOAT_NEXT_KEY = 'shuatiben_floatnext';
+const SPEECH_RATE_KEY = 'shuatiben_speechrate';
+function getSpeechRate() {
+  try { const v = parseFloat(localStorage.getItem(SPEECH_RATE_KEY)); return (v === 0.8 || v === 1.0 || v === 1.35) ? v : 1.0; } catch (e) { return 1.0; }
+}
+function setSpeechRate(v) {
+  v = parseFloat(v);
+  if (![0.8, 1.0, 1.35].includes(v)) v = 1.0;
+  try { localStorage.setItem(SPEECH_RATE_KEY, String(v)); } catch (e) {}
+  const sel = $('#speechRateSelect');
+  if (sel) sel.value = String(v);
+}
 function isDisplayOpen() {
   try {
     const v = localStorage.getItem(DISPLAY_OPEN_KEY);
@@ -160,19 +171,24 @@ function restoreFloatPos(btn, key) {
 function bindFloatResize() {
   if (typeof window.addEventListener !== 'function') return;
   const onResize = () => {
-    clampFloatPos($('#floatNext'), 'shuatiben_floatpos_next');
     clampFloatPos($('#floatPrev'), 'shuatiben_floatpos_prev');
+    clampFloatPos($('#floatBack'), 'shuatiben_floatpos_back');
   };
   window.addEventListener('resize', onResize);
   window.addEventListener('orientationchange', onResize);
   onResize();
 }
 function updateFloatNext() {
-  const showBase = isFloatNext() && session && currentView === 'practice';
-  const next = $('#floatNext');
-  if (next) next.classList.toggle('hidden', !showBase);
+  const inPractice = isFloatNext() && session && currentView === 'practice';
   const prev = $('#floatPrev');
-  if (prev) prev.classList.toggle('hidden', !showBase);
+  if (prev) prev.classList.toggle('hidden', !inPractice);
+  const back = $('#floatBack');
+  if (back) back.classList.toggle('hidden', !(session && currentView === 'report'));
+}
+function backToPapersFromFloat() {
+  session = null;
+  showView('papers');
+  renderPapers();
 }
 function clickFloatNext() {
   if (!session) return;
@@ -276,6 +292,8 @@ function initDisplaySettings() {
   setDisplayOpen(isDisplayOpen());
   const box = $('#floatNextToggle');
   if (box) box.checked = isFloatNext();
+  const rateSel = $('#speechRateSelect');
+  if (rateSel) rateSel.value = String(getSpeechRate());
   updateFloatNext();
 }
 
@@ -295,11 +313,12 @@ function loadDB() {
         if (!d.clearedProgress || typeof d.clearedProgress !== 'object') d.clearedProgress = {};
         if (!Array.isArray(d.favorites)) d.favorites = [];
         if (!Array.isArray(d.trash)) d.trash = [];
+        if (!Array.isArray(d.notes)) d.notes = [];
         return d;
       }
     }
   } catch (e) {}
-  return { papers: [], wrongBook: [], progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites: [], trash: [] };
+  return { papers: [], wrongBook: [], progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites: [], trash: [], notes: [] };
 }
 
 function saveDB() {
@@ -897,8 +916,9 @@ function detectType(typeLabel, options, answer) {
   const hasOptions = options && options.length > 0;
 
   if (/多选|不定项|多项/.test(label)) type = 'multiple';
+  else if (/单选/.test(label)) type = 'single';
   else if (/判断|是非|对错|True|False/i.test(label)) type = 'judge';
-  else if (/填空|简答|问答|主观|计算|名词解释/.test(label)) type = 'text';
+  else if (/填空|简答|问答|主观|计算|名词解释|材料|案例分析|论述|综合题/.test(label)) type = 'text';
   else if (hasOptions) type = 'single';
 
   if (hasOptions && type === 'single') {
@@ -1062,6 +1082,12 @@ function extractAnswerAnalysis(text) {
     const before = s.slice(0, anaIdx);
     if (/答案解析$/.test(before)) { /* ignore */ }
   }
+  if (anaIdx >= 0 && answer && /^(见|详见|参见|略)$/.test(answer)) {
+    // “答案：见解析 / 详见解析”归为解析
+    answer = '';
+    const ai = s.lastIndexOf('答案');
+    analysis = (ai >= 0 ? s.slice(ai + 2) : s.slice(anaIdx)).trim();
+  }
   return { answer, analysis };
 }
 function splitAnswerAnalysis(str) { return extractAnswerAnalysis(str); }
@@ -1100,7 +1126,7 @@ function parseAnswerKeyLine(line, entries) {
     return true;
   }
 
-  const labeled = trimmed.match(/^(?:第\s*(\d+)\s*题|Q\.?\s*(\d+))\s*[:：]?\s*(.+)$/i);
+  const labeled = trimmed.match(/^(?:第\s*(\d+)\s*题|Q\.?\s*(\d+))\s*[.、．:：)]?\s*(.+)$/i);
   if (labeled) {
     const num = parseInt(labeled[1] || labeled[2], 10);
     const rest = labeled[3].trim();
@@ -1111,7 +1137,7 @@ function parseAnswerKeyLine(line, entries) {
     return true;
   }
 
-  const single = trimmed.match(/^(\d+)\s*[.、．]\s*(.+)$/);
+  const single = trimmed.match(/^(\d+)\s*[.、．)）]\s*(.+)$/);
   if (single) {
     const num = parseInt(single[1], 10);
     const rest = single[2].trim();
@@ -1125,7 +1151,7 @@ function parseAnswerKeyLine(line, entries) {
     }
   }
 
-  const tokenRe = /(?:^|\s)(\d+)\s*[.、．]\s*([A-Ha-hＡ-Ｈａ-ｈ]+|[√×对错正确错误]+)(?=\s|$)/g;
+  const tokenRe = /(?:^|\s)(\d+)\s*[.、．)）]\s*([A-Ha-hＡ-Ｈａ-ｈ]+|[√×对错正确错误]+)(?=\s|$)/g;
   let tm;
   let found = false;
   while ((tm = tokenRe.exec(trimmed)) !== null) {
@@ -1276,6 +1302,10 @@ function parseTextPapers(text, fallbackTitle) {
       paper.subject = m[1].trim();
       continue;
     }
+    m = line.match(/^(?:考试类型|类型)\s*[:：]\s*(.+)$/);
+    if (m) { paper.meta = paper.meta || {}; paper.meta.examType = m[1].trim(); continue; }
+    m = line.match(/^(?:试卷类型|卷种|试题类型)\s*[:：]\s*(.+)$/);
+    if (m) { paper.meta = paper.meta || {}; paper.meta.paperType = m[1].trim(); continue; }
     m = line.match(/^(?:考试时间|答题时间|时间)\s*[:：]\s*(.+)$/);
     if (m) { paper.meta = paper.meta || {}; paper.meta.time = m[1].trim(); continue; }
     m = line.match(/^(?:试卷满分|满分|总分)\s*[:：]\s*(.+)$/);
@@ -1348,12 +1378,21 @@ function parseTextPapers(text, fallbackTitle) {
 
     let rest = line;
     let typeLabel = '';
-    m = rest.match(/^\[([^\]]+)\]\s*(.*)$/);
+    m = line.match(/^(?:【([^】]+)】|\[([^\]]+)\]|（([^）]+)）)\s*(.+)$/);
+    if (m) {
+      const lab = (m[1] || m[2] || m[3]).trim();
+      if (!/^(?:答案|正确答案|参考答案|解析|答案解析|试题解析|详解|分析|题型|科目|学科)$/i.test(lab)) {
+        flushQuestion();
+        cur = { num: null, typeLabel: lab, question: m[4].trim(), options: [], answer: '', analysis: '', subject: '' };
+        continue;
+      }
+    }
+    m = rest.match(/^\[([^\]]+)\]\s*(.*)$/) || rest.match(/^【([^】]+)】\s*(.*)$/) || rest.match(/^（([^）]+)）\s*(.*)$/);
     if (m) {
       typeLabel = m[1].trim();
       rest = m[2].trim();
     }
-    m = rest.match(/^(\d+)[.、．、]\s*(.*)$/) || rest.match(/^Q\.?\s*(\d+)\s*[.、．:：]\s*(.*)$/i) || rest.match(/^第\s*(\d+)\s*题\s*[.、．:：]?\s*(.*)$/i);
+    m = rest.match(/^(\d+)\s*[.、．)）]\s*(.*)$/) || rest.match(/^Q\.?\s*(\d+)\s*[.、．:：)]\s*(.*)$/i) || rest.match(/^第\s*(\d+)\s*题\s*[.、．:：)]?\s*(.*)$/i);
     if (m) {
       flushQuestion();
       const qText = m[2].trim();
@@ -1630,6 +1669,8 @@ function updateBadge() {
   if (badge) badge.textContent = db.wrongBook.length;
   const fav = $('#favBadge');
   if (fav) fav.textContent = (db.favorites || []).length;
+  const note = $('#notesBadge');
+  if (note) note.textContent = (db.notes || []).length;
 }
 
 function setTopbar(title, subtitle) {
@@ -1970,7 +2011,7 @@ function speakText(text) {
       const utter = new Utter(text);
       utter.lang = 'zh-CN';
       utter.volume = 1;
-      utter.rate = 1.12; // 中快速
+      utter.rate = getSpeechRate();
       utter.pitch = 1.08; // 更可爱亲和
       if (voice) utter.voice = voice;
       let started = false;
@@ -2125,6 +2166,37 @@ function startWrongPractice(wrongIds) {
   })));
 }
 
+function ensurePaperHighlights(p) {
+  if (p && !Array.isArray(p.highlights)) p.highlights = [];
+}
+function renderHighlightedQuestion(text, highlights) {
+  let out = escapeHtml(String(text || ''));
+  for (const h of (highlights || [])) {
+    const esc = escapeHtml(String(h && h.text || ''));
+    if (!esc) continue;
+    out = out.split(esc).join('<mark class="exam-highlight">' + esc + '</mark>');
+  }
+  return out;
+}
+function markSelection() {
+  if (!session) return;
+  let sel = '';
+  try { sel = String(window.getSelection ? window.getSelection().toString() : '').trim(); } catch (e) {}
+  if (!sel) { toast('请先用鼠标选中要标记的文字'); return; }
+  const item = session.items[session.index];
+  const q = item && item.q;
+  const pid = session.paperId || (item && item.srcPaperId) || '';
+  const paper = pid ? db.papers.find((p) => p.id === pid) : null;
+  if (!paper || !q) { toast('当前题目没有所属试卷，无法保存标记'); return; }
+  ensurePaperHighlights(paper);
+  if (!paper.highlights.some((x) => x.questionId === q.id && x.text === sel)) {
+    paper.highlights.push({ questionId: q.id, text: sel });
+    saveDB();
+  }
+  renderPractice();
+  toast('已保存荧光标记');
+}
+
 function renderPractice() {
   if (!session) return;
   const total = session.items.length;
@@ -2245,10 +2317,11 @@ function renderPractice() {
           <span class="question-no">第 ${index + 1} 题</span>
           <button type="button" class="fav-btn ${favActive ? 'active' : ''}" data-action="toggle-fav" title="${favActive ? '取消收藏' : '收藏本题'}">${favActive ? '⭐' : '☆'}</button>
           <button type="button" class="speaker-btn" data-action="speak-question" title="语音播报本题">🔊</button>
+          <button type="button" class="mark-btn" data-action="mark-selection" title="把选中文字保存为荧光标记">🖍</button>
           <span class="tag">${typeName(q)}</span>
           ${session.subject ? `<span class="tag tag-subject">${escapeHtml(session.subject)}</span>` : ''}
         </div>
-        <p class="question-text">${escapeHtml(q.question)} <span class="q-score">（本题 ${pts} 分）</span></p>
+        <p class="question-text">${renderHighlightedQuestion(q.question, (function(){ const p = session.paperId ? db.papers.find((x)=>x.id===session.paperId) : null; return p && p.highlights ? p.highlights.filter((x)=>x.questionId===q.id) : []; })())} <span class="q-score">（本题 ${pts} 分）</span></p>
         ${answerUI}
         ${submitted ? '' : `<div class="action-row">${action}</div>`}
         ${resultPanel}
@@ -2498,6 +2571,9 @@ function finalizePaperRecord(paperId) {
 }
 
 function finalizeAndRestartPaper(paperId) {
+  // 重新作答：清空本套试卷的荧光标记
+  const hp = db.papers.find((x) => x.id === paperId);
+  if (hp && hp.highlights) hp.highlights = [];
   // 本轮结束：把本轮完整作答存档为“上次记录/成绩”→ 清空本轮进度 → 从第 1 题开始新一轮
   finalizePaperRecord(paperId);
   clearPaperProgress(paperId);
@@ -2761,7 +2837,11 @@ function showExamInfo(paperId) {
   const scoring = buildScoring(p.questions.map((q) => ({ q })));
   const typeRows = Object.keys(scoring.perType).map((t) => `${t} ${scoring.perType[t]} 道 · 共 ${scoring.perTypeScore[t]} 分（每题 ${Math.round(scoring.perTypeScore[t] / scoring.perType[t])} 分）`).join('<br/>');
   const suggest = meta.time || (Math.max(10, Math.round((p.questions.length * 1.2) / 5) * 5) + ' 分钟');
+  const examType = meta.examType || (p.title.match(/([^《》]{2,20}?)考试/) ? p.title.match(/([^《》]{2,20}?)考试/)[1].trim() : '') || '—';
+  const paperType = meta.paperType || (p.title.match(/(\d{4}年)?(真题|模拟题|预测题|冲刺题|押题卷)/) ? p.title.match(/(\d{4}年)?(真题|模拟题|预测题|冲刺题|押题卷)/)[0] : '') || '—';
   const rows = [
+    ['考试类型', examType],
+    ['试卷类型', paperType],
     ['考试说明', meta.instructions || '请独立完成本次练习，作答后系统即时判分并给出答案解析。'],
     ['考试科目', p.subject || '其他'],
     ['考试时间', suggest],
@@ -2947,7 +3027,7 @@ function runImportBackup(raw) {
   }
   if (!papers.length && !wrongBook.length && !favorites.length && !Object.keys(progress).length) { toast('没有可导入的数据'); return false; }
   if (!confirm('导入将覆盖当前设备的全部数据，是否继续？')) return false;
-  db = { papers, wrongBook, progress, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites, trash: [] };
+  db = { papers, wrongBook, progress, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites, trash: [], notes: [] };
   saveDB();
   closeBackupModal();
   renderPapers();
@@ -3052,7 +3132,17 @@ function exportReport() {
 }
 
 /* ============================== 全局事件 ============================== */
+document.addEventListener('contextmenu', handleContextMenu);
 document.addEventListener('click', (e) => {
+  try {
+    if (currentView === 'practice' && session && e.target && typeof e.target.closest === 'function' && !e.target.closest('button,input,textarea,select,summary,[data-action],.option,.judge-btn,.fav-btn,.speaker-btn,.qnav-chip')) {
+      const st = session.answers[session.index];
+      if (st && st.submitted && !st.correct && session.index + 1 < session.items.length) {
+        nextQuestion();
+        return;
+      }
+    }
+  } catch (err) {}
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
   const action = btn.dataset.action;
@@ -3065,6 +3155,7 @@ document.addEventListener('click', (e) => {
   else if (action === 'open-trash') openTrash();
   else if (action === 'restore-trash') restoreTrash(id);
   else if (action === 'clear-trash') clearTrash();
+  else if (action === 'remove-note') removeNote(id);
   else if (action === 'clear-subject-filter') { paperSubjectFilter = 'all'; renderPapers(); }
   else if (action === 'start-paper') startPaper(id, false);
   else if (action === 'jump-question') goToQuestion(Number(btn.dataset.index));
@@ -3074,6 +3165,7 @@ document.addEventListener('click', (e) => {
   else if (action === 'speak-fav-analysis') { const fv = (db.favorites || []).find((x) => x.id === id); if (fv) speakQuestionAnalysis(fv.question); }
   else if (action === 'edit-answer') editCurrentAnswer();
   else if (action === 'continue-practice') continuePractice();
+  else if (action === 'mark-selection') markSelection();
   else if (action === 'toggle-fav') toggleFavoriteCurrentQuestion();
   else if (action === 'remove-fav') {
     removeFavoriteById(id);
@@ -3167,6 +3259,9 @@ $$('.nav-btn').forEach((btn) => {
     } else if (view === 'fav') {
       showView('fav');
       renderFavorites();
+    } else if (view === 'notes') {
+      showView('notes');
+      renderNotes();
     }
   });
 });
@@ -3342,11 +3437,12 @@ $$('.theme-btn').forEach((btn) => {
   btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
 });
 
-$('#floatNext').addEventListener('click', () => { if (window.__floatDragMoved) { window.__floatDragMoved = false; return; } clickFloatNext(); });
 $('#floatPrev').addEventListener('click', () => { if (window.__floatDragMoved) { window.__floatDragMoved = false; return; } clickFloatPrev(); });
-makeFloatDraggable('#floatNext', 'shuatiben_floatpos_next');
+$('#floatBack').addEventListener('click', () => { if (window.__floatDragMoved) { window.__floatDragMoved = false; return; } backToPapersFromFloat(); });
 makeFloatDraggable('#floatPrev', 'shuatiben_floatpos_prev');
+makeFloatDraggable('#floatBack', 'shuatiben_floatpos_back');
 $('#floatNextToggle').addEventListener('change', (e) => setFloatNext(e.target.checked));
+$('#speechRateSelect').addEventListener('change', (e) => setSpeechRate(e.target.value));
 $('#menuToggle').addEventListener('click', () => {
   const sb = document.querySelector('.sidebar');
   if (!sb) return;
@@ -3488,4 +3584,51 @@ function clearTrash() {
   saveDB();
   renderTrash();
   toast('回收站已清空');
+}
+function ensureNotes() {
+  if (!Array.isArray(db.notes)) db.notes = [];
+}
+function saveSelectionNote(sel) {
+  ensureNotes();
+  let remark = '';
+  try { if (typeof prompt === 'function') remark = String(prompt('给这段标记加一句备注（可留空）', '') || '').trim(); } catch (e) {}
+  let pid = '', qid = '';
+  if (session) {
+    const item = session.items[session.index];
+    pid = session.paperId || (item && item.srcPaperId) || '';
+    qid = (item && item.q && item.q.id) || '';
+  }
+  db.notes.unshift({ id: uid('note'), text: String(sel || ''), remark: remark, paperId: pid, questionId: qid, createdAt: Date.now() });
+  saveDB();
+  updateBadge();
+  toast('已保存到笔记本');
+}
+function handleContextMenu(e) {
+  try { e.preventDefault(); } catch (err) {}
+  let sel = '';
+  try { sel = String(window.getSelection ? window.getSelection().toString() : '').trim(); } catch (err) {}
+  if (sel) {
+    saveSelectionNote(sel);
+  } else {
+    try { window.close(); } catch (err) {}
+    toast('当前网页无法自动关闭窗口，请使用浏览器右上角关闭按钮');
+  }
+}
+function renderNotes() {
+  ensureNotes();
+  setTopbar('笔记本', '右键选中文字保存的题目片段与备注');
+  const root = $('#view-notes');
+  if (!db.notes.length) {
+    root.innerHTML = '<div class="empty"><div class="emoji">📒</div><h3>笔记本是空的</h3><p>在题目上用鼠标选中一段文字，然后右键即可保存到这里，并可添加备注。</p></div>';
+    return;
+  }
+  root.innerHTML = db.notes.map((n) => `<div class="note-item"><div class="note-text">${escapeHtml(n.text)}</div>${n.remark ? `<div class="note-remark">备注：${escapeHtml(n.remark)}</div>` : ''}<div class="meta"><span>${formatDate(n.createdAt)}</span><button class="btn btn-outline btn-sm" data-action="remove-note" data-id="${n.id}">删除</button></div></div>`).join('');
+}
+function removeNote(id) {
+  ensureNotes();
+  db.notes = db.notes.filter((n) => n.id !== id);
+  saveDB();
+  renderNotes();
+  updateBadge();
+  toast('已删除该条笔记');
 }
