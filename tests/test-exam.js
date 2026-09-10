@@ -81,4 +81,17 @@ const parsed3 = ctx.__run('parseAuto(' + JSON.stringify(text3) + ', "f3")');
 assert.strictEqual(parsed3.papers[0].questions[0].answer, 'B', '〖答案〗可识别');
 assert.ok(parsed3.papers[0].questions[0].analysis.includes('1+1=2'), '〖解析〗可识别');
 
+// 〖参考答案〗单独一行、答案在下一行
+const text4 = ['2026年考试《D》试题','1. 1+1=?','A. 1','B. 2','〖参考答案〗','B','〖解析〗','因为 1+1=2','2. 2+2=?','A. 2','B. 3','C. 4','〖参考答案〗：C'].join('\n');
+const parsed4 = ctx.__run('parseAuto(' + JSON.stringify(text4) + ', "f4")');
+assert.strictEqual(parsed4.papers[0].questions[0].answer, 'B', '单独一行〖参考答案〗+下一行答案');
+assert.ok(parsed4.papers[0].questions[0].analysis.includes('1+1=2'), '紧随的〖解析〗可识别');
+assert.strictEqual(parsed4.papers[0].questions[1].answer, 'C', '〖参考答案〗：C 可识别');
+
+// 后置答案区仍正常：参考答案（单独一行）+ 1. B / 2. C
+const text5 = ['2026年考试《E》试题','1. 1+1=?','A. 1','B. 2','2. 2+2=?','A. 2','B. 3','C. 4','参考答案','1. B','解析：第一题','2. C','解析：第二题'].join('\n');
+const parsed5 = ctx.__run('parseAuto(' + JSON.stringify(text5) + ', "f5")');
+assert.strictEqual(parsed5.papers[0].questions[0].answer, 'B', '后置答案区第1题');
+assert.strictEqual(parsed5.papers[0].questions[1].answer, 'C', '后置答案区第2题');
+
 console.log('PASS test-exam');

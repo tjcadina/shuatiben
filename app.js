@@ -1131,6 +1131,8 @@ function parseTextPapers(text, fallbackTitle) {
   let blocks = [];
   let cur = null;
   let answerMode = false;
+  let pendingAnswerLabel = false;
+  let pendingAnalysisLabel = false;
 
   const isSectionLine = (l) => /^[一二三四五六七八九十]+[、.．]/.test(l) || /^第[一二三四五六七八九十]+[部分大题]/.test(l);
   const isPaperTitle = (l) => {
@@ -1145,6 +1147,8 @@ function parseTextPapers(text, fallbackTitle) {
   const flushQuestion = () => {
     if (cur && (cur.question || cur.answer || cur.options.length)) blocks.push(cur);
     cur = null;
+    pendingAnswerLabel = false;
+    pendingAnalysisLabel = false;
   };
 
   const buildPaper = () => {
@@ -1178,6 +1182,8 @@ function parseTextPapers(text, fallbackTitle) {
       paper = { title: '', subject: '', fallback: '', answerEntries: [], meta: {} };
     }
     answerMode = false;
+    pendingAnswerLabel = false;
+    pendingAnalysisLabel = false;
     paper.title = title;
   };
 
@@ -1217,7 +1223,39 @@ function parseTextPapers(text, fallbackTitle) {
     m = line.match(/^(?:考试说明|答题说明|考生须知)\s*[:：]\s*(.+)$/);
     if (m) { paper.meta = paper.meta || {}; paper.meta.instructions = m[1].trim(); continue; }
 
+    if (pendingAnalysisLabel) {
+      if (cur) {
+        const text = line.replace(/^[【\[〖]?\s*["“]?\s*(?:解析|答案解析|试题解析|详解|分析)\s*["”]?\s*[】\]〗]?\s*[:：]?\s*/, '').trim();
+        if (text) cur.analysis = cur.analysis ? cur.analysis + '\n' + text : text;
+      }
+      pendingAnalysisLabel = false;
+      continue;
+    }
+    if (pendingAnswerLabel) {
+      if (/^\s*\d+\s*[.、．]/.test(line)) {
+        answerMode = true; // 后面是“1. B / 2. C”这种答案区
+        pendingAnswerLabel = false;
+        // 不 continue：交给下方 answerMode 分支处理
+      } else {
+        const sa = splitAnswerAnalysis(line);
+        if (cur) {
+          cur.answer = sa.answer.replace(/^[【\[〖]?\s*["“]?\s*(?:答案|正确答案|参考答案)\s*["”]?\s*[】\]〗]?\s*[:：]?\s*/i, '');
+          if (sa.analysis) cur.analysis = sa.analysis;
+        }
+        pendingAnswerLabel = false;
+        continue;
+      }
+    }
     if (isAnswerSectionHeader(line) && (blocks.length || cur)) {
+      const clean = line.replace(/[【\[\]〖〗"“”】:：\s]/g, '').replace(/^[一二三四五六七八九十]+[、.．]/, '');
+      if (cur && /^(?:答案|参考答案)$/.test(clean)) {
+        pendingAnswerLabel = true; // 本行只是“参考答案”，答案在下一行
+        continue;
+      }
+      if (cur && /^(?:解析|答案解析|试题解析|详解|分析)$/.test(clean)) {
+        pendingAnalysisLabel = true; // 本行只是“解析”，解析内容在下一行
+        continue;
+      }
       flushQuestion();
       answerMode = true;
       continue;
