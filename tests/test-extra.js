@@ -144,4 +144,18 @@ assert.ok(fs.existsSync(path.join(__dirname, '..', 'vendor/lz-string.min.js')), 
 assert.ok(html.includes('genLinkBtn'), '含迁移链接按钮');
 assert.ok(appSrc.includes('genTransferLink') && appSrc.includes('tryImportFromHash'), '含迁移链接逻辑');
 
+// 悬浮按钮常驻：未作答时点击提示；作答后可前进/后退
+const stFloat = {};
+stFloat[KEY] = JSON.stringify({ papers: [mkPaper('pf', '悬浮卷', '数学', [q('f1'), q('f2')])], wrongBook: [], progress: {}, deletedPapers: [], deletedWrong: [], clearedProgress: {}, favorites: [] });
+const fx = loadApp(stFloat);
+fx.__run("startPaper('pf', false);");
+fx.__run('clickFloatNext();');
+assert.ok(fx.__run("document.querySelector('#toast').textContent").includes('请先作答'), '未作答点击悬浮下一题有提示');
+fx.__run("session.answers[0] = { selected: 'A' }; submitCurrentAnswer(); if (session._autoTimer) { clearTimeout(session._autoTimer); session._autoTimer = null; } clickFloatNext();");
+assert.strictEqual(fx.__run('session.index'), 1, '作答后悬浮下一题可前进');
+fx.__run('clickFloatPrev();');
+assert.strictEqual(fx.__run('session.index'), 0, '悬浮上一题可后退');
+fx.__run('clickFloatPrev();');
+assert.ok(fx.__run("document.querySelector('#toast').textContent").includes('第一题'), '第一题再上一题有提示');
+
 console.log('PASS test-extra');

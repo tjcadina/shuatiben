@@ -129,6 +129,7 @@ function setFloatNext(on) {
 function prevQuestion() {
   if (!session) return;
   if (session.index > 0) goToQuestion(session.index - 1);
+  else toast('已经是第一题了');
 }
 function restoreFloatPos(btn, key) {
   try {
@@ -145,9 +146,21 @@ function restoreFloatPos(btn, key) {
 function updateFloatNext() {
   const showBase = isFloatNext() && session && currentView === 'practice';
   const next = $('#floatNext');
-  if (next) next.classList.toggle('hidden', !(showBase && session.answers[session.index] && session.answers[session.index].submitted && session.index + 1 < session.items.length));
+  if (next) next.classList.toggle('hidden', !showBase);
   const prev = $('#floatPrev');
-  if (prev) prev.classList.toggle('hidden', !(showBase && session.index > 0));
+  if (prev) prev.classList.toggle('hidden', !showBase);
+}
+function clickFloatNext() {
+  if (!session) return;
+  const st = session.answers[session.index];
+  if (!st || !st.submitted) { toast('请先作答本题'); return; }
+  if (session.index + 1 < session.items.length) nextQuestion();
+  else nextQuestion(); // 最后一题：进入答题报告
+}
+function clickFloatPrev() {
+  if (!session) return;
+  if (session.index > 0) goToQuestion(session.index - 1);
+  else toast('已经是第一题了');
 }
 function makeFloatDraggable(sel, key) {
   const btn = $(sel);
@@ -3209,8 +3222,8 @@ $$('.theme-btn').forEach((btn) => {
   btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
 });
 
-$('#floatNext').addEventListener('click', () => { if (window.__floatDragMoved) { window.__floatDragMoved = false; return; } nextQuestion(); });
-$('#floatPrev').addEventListener('click', () => { if (window.__floatDragMoved) { window.__floatDragMoved = false; return; } prevQuestion(); });
+$('#floatNext').addEventListener('click', () => { if (window.__floatDragMoved) { window.__floatDragMoved = false; return; } clickFloatNext(); });
+$('#floatPrev').addEventListener('click', () => { if (window.__floatDragMoved) { window.__floatDragMoved = false; return; } clickFloatPrev(); });
 makeFloatDraggable('#floatNext', 'shuatiben_floatpos_next');
 makeFloatDraggable('#floatPrev', 'shuatiben_floatpos_prev');
 $('#floatNextToggle').addEventListener('change', (e) => setFloatNext(e.target.checked));
