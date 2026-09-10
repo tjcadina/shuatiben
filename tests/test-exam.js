@@ -114,4 +114,11 @@ const parsed8 = ctx.__run('parseAuto(' + JSON.stringify(text8) + ', "f8")');
 assert.strictEqual(parsed8.papers[0].questions[0].answer, 'B', '带星号参考答案可识别');
 assert.ok(parsed8.papers[0].questions[1].analysis.includes('2+2=4'), '带星号解析可识别');
 
+// 第N题 标题号码也能对应题目/答案
+const text9 = ['2026年考试《I》试题','第1题 1+1=?','A. 1','B. 2','第2题 2+2=?','A. 2','B. 3','C. 4','参考答案','第1题 B','解析：第一题','第2题 C','解析：第二题'].join('\n');
+const parsed9 = ctx.__run('parseAuto(' + JSON.stringify(text9) + ', "f9")');
+assert.strictEqual(parsed9.papers[0].questions.length, 2, '第N题识别为题目');
+assert.strictEqual(parsed9.papers[0].questions[0].answer, 'B', '第1题对应答案B');
+assert.strictEqual(parsed9.papers[0].questions[1].answer, 'C', '第2题对应答案C');
+
 console.log('PASS test-exam');

@@ -1100,6 +1100,17 @@ function parseAnswerKeyLine(line, entries) {
     return true;
   }
 
+  const labeled = trimmed.match(/^(?:第\s*(\d+)\s*题|Q\.?\s*(\d+))\s*[:：]?\s*(.+)$/i);
+  if (labeled) {
+    const num = parseInt(labeled[1] || labeled[2], 10);
+    const rest = labeled[3].trim();
+    const sa = splitAnswerAnalysis(rest);
+    let answer = sa.answer;
+    if (!answer && !sa.analysis && rest.indexOf('答案') < 0 && rest.indexOf('解析') < 0) answer = rest.trim();
+    addAnswerEntry(entries, num, answer, sa.analysis);
+    return true;
+  }
+
   const single = trimmed.match(/^(\d+)\s*[.、．]\s*(.+)$/);
   if (single) {
     const num = parseInt(single[1], 10);
@@ -1285,7 +1296,7 @@ function parseTextPapers(text, fallbackTitle) {
       continue;
     }
     if (pendingAnswerLabel) {
-      if (/^\s*\d+\s*[.、．]/.test(line)) {
+      if (/^\s*(?:\d+\s*[.、．]|第\s*\d+\s*题|Q\.?\s*\d+)/.test(line)) {
         answerMode = true; // 后面是“1. B / 2. C”这种答案区
         pendingAnswerLabel = false;
         // 不 continue：交给下方 answerMode 分支处理
@@ -1342,7 +1353,7 @@ function parseTextPapers(text, fallbackTitle) {
       typeLabel = m[1].trim();
       rest = m[2].trim();
     }
-    m = rest.match(/^(\d+)[.、．、]\s*(.*)$/) || rest.match(/^Q\.?\s*(\d+)\s*[.、．:：]\s*(.*)$/i);
+    m = rest.match(/^(\d+)[.、．、]\s*(.*)$/) || rest.match(/^Q\.?\s*(\d+)\s*[.、．:：]\s*(.*)$/i) || rest.match(/^第\s*(\d+)\s*题\s*[.、．:：]?\s*(.*)$/i);
     if (m) {
       flushQuestion();
       const qText = m[2].trim();
