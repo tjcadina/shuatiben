@@ -1160,8 +1160,9 @@ function applyAnswerEntries(questions, nums, entries) {
     if (!found) return;
     pos[num] = idx + 1;
     const q = questions[qi];
-    if (found.answer) q.answer = normalizeAnswerForQuestion(q, found.answer);
-    if (found.analysis) q.analysis = q.analysis ? q.analysis + '\n' + found.analysis : found.analysis;
+    // 优先采用“题目后面紧跟”的答案/解析；文末答案区仅在题目本身没有时才回填
+    if (found.answer && !q.answer) q.answer = normalizeAnswerForQuestion(q, found.answer);
+    if (found.analysis && !q.analysis) q.analysis = found.analysis;
   });
 }
 

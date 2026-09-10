@@ -94,4 +94,12 @@ const parsed5 = ctx.__run('parseAuto(' + JSON.stringify(text5) + ', "f5")');
 assert.strictEqual(parsed5.papers[0].questions[0].answer, 'B', '后置答案区第1题');
 assert.strictEqual(parsed5.papers[0].questions[1].answer, 'C', '后置答案区第2题');
 
+// 每道题后面紧跟的答案/解析优先于文末答案区
+const text6 = ['2026年考试《F》试题','1. 1+1=?','A. 1','B. 2','答案：B','解析：紧跟解析','2. 2+2=?','A. 2','B. 3','C. 4','答案：C','解析：紧跟第二题','参考答案及解析','1. A','解析：文末解析一','2. B','解析：文末解析二'].join('\n');
+const parsed6 = ctx.__run('parseAuto(' + JSON.stringify(text6) + ', "f6")');
+assert.strictEqual(parsed6.papers[0].questions[0].answer, 'B', '紧跟答案优先于文末答案');
+assert.strictEqual(parsed6.papers[0].questions[0].analysis, '紧跟解析', '紧跟解析优先于文末解析');
+assert.strictEqual(parsed6.papers[0].questions[1].answer, 'C', '第二题紧跟答案优先');
+assert.strictEqual(parsed6.papers[0].questions[1].analysis, '紧跟第二题', '第二题紧跟解析优先');
+
 console.log('PASS test-exam');
