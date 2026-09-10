@@ -1223,6 +1223,7 @@ function parseTextPapers(text, fallbackTitle) {
   let answerMode = false;
   let pendingAnswerLabel = false;
   let pendingAnalysisLabel = false;
+  let pendingTypeLabel = '';
 
   const isSectionLine = (l) => /^[一二三四五六七八九十]+[、.．]/.test(l) || /^第[一二三四五六七八九十]+[部分大题]/.test(l);
   const isPaperTitle = (l) => {
@@ -1378,12 +1379,21 @@ function parseTextPapers(text, fallbackTitle) {
 
     let rest = line;
     let typeLabel = '';
+    const tlOnly = line.match(/^(?:【([^】]+)】|\[([^\]]+)\]|（([^）]+)）)\s*$/);
+    if (tlOnly) {
+      const labOnly = (tlOnly[1] || tlOnly[2] || tlOnly[3]).trim();
+      if (/判断|是非|对错|多选|单选|不定项|填空|简答|问答|主观|计算|名词解释|材料|案例分析|论述|综合题/.test(labOnly)) {
+        pendingTypeLabel = labOnly;
+        continue;
+      }
+    }
     m = line.match(/^(?:【([^】]+)】|\[([^\]]+)\]|（([^）]+)）)\s*(.+)$/);
     if (m) {
       const lab = (m[1] || m[2] || m[3]).trim();
       if (!/^(?:答案|正确答案|参考答案|解析|答案解析|试题解析|详解|分析|题型|科目|学科)$/i.test(lab)) {
         flushQuestion();
-        cur = { num: null, typeLabel: lab, question: m[4].trim(), options: [], answer: '', analysis: '', subject: '' };
+        cur = { num: null, typeLabel: lab || pendingTypeLabel, question: m[4].trim(), options: [], answer: '', analysis: '', subject: '' };
+        pendingTypeLabel = '';
         continue;
       }
     }
@@ -1399,13 +1409,14 @@ function parseTextPapers(text, fallbackTitle) {
       const inline = extractInlineOptions(qText);
       cur = {
         num: parseInt(m[1], 10),
-        typeLabel,
+        typeLabel: typeLabel || pendingTypeLabel,
         question: inline ? inline.question : qText,
         options: inline ? inline.options : [],
         answer: '',
         analysis: '',
         subject: ''
       };
+      pendingTypeLabel = '';
       continue;
     }
 

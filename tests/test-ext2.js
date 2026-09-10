@@ -40,4 +40,28 @@ const parsed2 = ctx.__run('parseAuto(' + JSON.stringify(text2) + ', "z")');
 assert.strictEqual(parsed2.papers[0].questions[0].type, 'single', '1）选择题识别');
 assert.ok(parsed2.papers[0].questions.some(q => q.type === 'text' && q.typeLabel.includes('材料')), '材料题识别为文字题');
 
+// 题型识别：判断 / 对错 / 材料 / 问答（含题型标题单独一行）
+const t2 = [
+  '2026年考试《T》试题',
+  '【判断题】三角形的内角和是 180°。',
+  '答案：正确',
+  '【对错题】0 是最小的正整数。',
+  '答案：错误',
+  '【材料题】请根据材料回答问题：材料内容……',
+  '答案：见解析',
+  '【问答题】请简述光合作用的意义。',
+  '答案：光合作用的意义是……'
+].join('\n');
+const parsedT = ctx.__run('parseAuto(' + JSON.stringify(t2) + ', "t2")');
+const qs = parsedT.papers[0].questions;
+assert.strictEqual(qs[0].type, 'judge', '判断题识别为判断题');
+assert.strictEqual(qs[1].type, 'judge', '对错题识别为判断题');
+assert.strictEqual(qs[2].type, 'text', '材料题识别为文字题');
+assert.strictEqual(qs[3].type, 'text', '问答题识别为文字题');
+
+// 题型标题单独一行、题干在下一行
+const t3 = ['2026年考试《T3》试题','【材料题】','1）阅读材料并回答问题。','答案：答案内容','【问答题】','2）请说明理由。','答案：理由内容'].join('\n');
+const parsedT3 = ctx.__run('parseAuto(' + JSON.stringify(t3) + ', "t3")');
+assert.strictEqual(parsedT3.papers[0].questions[0].type, 'text', '题型标题单独一行的材料题');
+
 console.log('PASS test-ext2');
