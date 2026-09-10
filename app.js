@@ -1005,7 +1005,8 @@ function splitAnswerAnalysis(str) {
 function isAnswerSectionHeader(line) {
   const t = line.replace(/^[一二三四五六七八九十]+[、.．]\s*/, '').replace(/[【\[\]"“”】]/g, '').trim();
   return /^(?:参考答案|答案与解析|答案解析|试题答案|答案详解|参考答案及解析|参考答案与解析|答案及解析|试题答案解析)(?:[:：]?\s*)$/.test(t)
-    || /^答案[:：]?\s*$/.test(t);
+    || /^答案[:：]?\s*$/.test(t)
+    || /^(?:解析|答案解析|试题解析|详解|分析|本题解析)$/.test(t.replace(/[【\[\]"“”】:：\s]/g, ''));
 }
 
 function addAnswerEntry(entries, num, answer, analysis) {
@@ -1022,16 +1023,6 @@ function addAnswerEntry(entries, num, answer, analysis) {
 function parseAnswerKeyLine(line, entries) {
   const trimmed = String(line || '').trim();
   if (!trimmed) return false;
-
-  const analysisOnly = trimmed.match(/^[【\[]?\s*["“]?\s*(?:解析|答案解析|试题解析|详解|分析)\s*["”]?\s*[】\]]?\s*[:：]?\s*(.+)$/i);
-  if (analysisOnly) {
-    if (entries.length) {
-      const last = entries[entries.length - 1];
-      const text = analysisOnly[1].trim();
-      last.analysis = last.analysis ? last.analysis + '\n' + text : text;
-    }
-    return true;
-  }
 
   const range = trimmed.match(/^(\d+)\s*[-–~至]\s*(\d+)\s*[:：]?\s*([A-Ha-hＡ-Ｈａ-ｈ]+|[√×对错正确错误]+)\s*$/);
   if (range) {
@@ -1065,7 +1056,19 @@ function parseAnswerKeyLine(line, entries) {
     addAnswerEntry(entries, parseInt(tm[1], 10), tm[2], '');
     found = true;
   }
-  return found;
+  if (found) return true;
+
+  // 只要出现“解析”两个字，就按解析处理（解析、答案解析、【解析】、本题解析…）
+  const anaIdx = trimmed.indexOf('解析');
+  if (anaIdx >= 0) {
+    if (entries.length) {
+      const last = entries[entries.length - 1];
+      const text = trimmed.slice(anaIdx + 2).replace(/^[】\]]?\s*[:：]?\s*/, '').trim();
+      if (text) last.analysis = last.analysis ? last.analysis + '\n' + text : text;
+    }
+    return true;
+  }
+  return false;
 }
 
 function normalizeAnswerForQuestion(q, rawAnswer) {
@@ -1251,7 +1254,7 @@ function parseTextPapers(text, fallbackTitle) {
     }
 
     if (!cur) {
-      const metaLike = /^[【\[]?\s*["“]?\s*(?:答案|正确答案|参考答案|解析|答案解析|试题解析|详解|Answer|Explanation|Analysis)/i.test(line);
+      const metaLike = line.indexOf('解析') >= 0 || /^[【\[]?\s*["“]?\s*(?:答案|正确答案|参考答案|详解|Answer|Explanation|Analysis)/i.test(line);
       const optLike = /^([A-Ha-hＡ-Ｈａ-ｈ])\s*[.、．:：）]/.test(line);
       if (!paper.title && !paper.fallback && !metaLike && !optLike) paper.fallback = line;
       continue;
@@ -1269,14 +1272,20 @@ function parseTextPapers(text, fallbackTitle) {
     }
 
     m = line.match(/^[【\[]?\s*["“]?\s*(?:答案|正确答案|参考答案)\s*["”]?\s*[】\]]?\s*[:：]?\s*(.*)$/i);
-    if (m) {
+    if (m && m[1].trim().indexOf('解析') !== 0) {
       const withAnalysis = splitAnswerAnalysis(m[1].trim());
       cur.answer = withAnalysis.answer;
       if (withAnalysis.analysis) cur.analysis = withAnalysis.analysis;
       continue;
     }
 
-    m = line.match(/^[【\[]?\s*["“]?\s*(?:解析|答案解析|试题解析|详解|分析)\s*["”]?\s*[】\]]?\s*[:：]?\s*(.*)$/i);
+    const anaIdx = line.indexOf('解析');
+    if (anaIdx >= 0) {
+      const text = line.slice(anaIdx + 2).replace(/^[】\]]?\s*[:：]?\s*/, '').trim();
+      cur.analysis = cur.analysis ? cur.analysis + '\n' + text : text;
+      continue;
+    }
+    m = line.match(/^[【\[]?\s*["“]?\s*(?:详解|分析)\s*["”]?\s*[】\]]?\s*[:：]?\s*(.*)$/i);
     if (m) {
       cur.analysis = m[1].trim();
       continue;

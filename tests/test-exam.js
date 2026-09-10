@@ -69,4 +69,10 @@ assert.ok(parsed.papers[0].questions[1].analysis.includes('第二题解析'), '�
 assert.strictEqual(parsed.papers[0].examMeta.time, '90分钟', '解析考试时间元信息');
 assert.strictEqual(parsed.papers[1].title.includes('城乡规划实务'), true, '第二套试卷标题正确');
 
+// 包含“解析”两字即视为解析（本题解析 / 答案解析 / 【解析】）
+const text2 = ['2026年考试《B》试题','1. 1+1=?','A. 1','B. 2','答案：B','本题解析：因为 1+1=2','2. 2+2=?','A. 2','B. 3','C. 4','答案：C','答案解析说明一下：2+2=4'].join('\n');
+const parsed2 = ctx.__run('parseAuto(' + JSON.stringify(text2) + ', "f2")');
+assert.ok(parsed2.papers[0].questions[0].analysis.includes('1+1=2'), '本题解析 被识别');
+assert.ok(parsed2.papers[0].questions[1].analysis.includes('2+2=4'), '答案解析说明 被识别');
+
 console.log('PASS test-exam');
